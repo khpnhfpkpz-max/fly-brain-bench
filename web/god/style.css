@@ -1,0 +1,167 @@
+/* NEURAL GOD -- Phase 1. A separate theme from web/style.css so the main
+   bench's look is never at risk of regressing from this work. */
+:root{
+  --bg:#05080a; --panel:#0c1418; --panel2:#101c22; --raise:#16232a;
+  --line:#1c2b32; --line2:#283d46;
+  --ink:#e7f1f4; --ink2:#8fa3ab; --ink3:#57696f;
+  --cyan:#5fd0ff; --cyan-dim:#1c4a5c;
+  --amber:#f2a93b; --red:#e8654b;
+  --r:10px; --rs:6px;
+  --fd:'Archivo',system-ui,sans-serif;
+  --fb:'IBM Plex Sans',system-ui,sans-serif;
+  --fm:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--fb); font-size:13.5px; line-height:1.45;
+  display:grid; grid-template-rows:auto 1fr; overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:var(--fm); font-variant-numeric:tabular-nums}
+.dim{color:var(--ink3)}
+h1,h2,h3{font-family:var(--fd); font-weight:600; margin:0}
+button{font:inherit; cursor:pointer}
+button:disabled{cursor:not-allowed; opacity:.45}
+
+/* ---------------- boot ---------------- */
+#boot{
+  position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(120% 120% at 50% 0%, #0d1a20 0%, var(--bg) 60%);
+  transition:opacity .4s ease;
+}
+#boot.done{opacity:0; pointer-events:none}
+.boot-card{width:min(420px,88vw); text-align:left}
+.boot-card .eyebrow{font-family:var(--fm); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--cyan); margin:0 0 6px}
+.boot-card h1{font-size:20px; margin:0 0 22px}
+.load-row{display:flex; justify-content:space-between; font-size:12px; color:var(--ink2); margin-bottom:6px}
+.track{height:4px; background:var(--line); border-radius:3px; overflow:hidden}
+#loadBar{height:100%; width:0; background:linear-gradient(90deg,var(--cyan-dim),var(--cyan)); transition:width .25s ease}
+#loadDetail{font-size:12px; margin:10px 0 0}
+#loadDetail.err{color:var(--red)}
+
+/* ---------------- header ---------------- */
+.top{
+  display:flex; align-items:center; gap:22px; padding:10px 18px;
+  background:var(--panel); border-bottom:1px solid var(--line);
+}
+.brand{display:flex; align-items:center; gap:11px; min-width:0}
+.brand h1{font-size:15px; letter-spacing:.02em}
+.brand p{margin:0; font-size:11px; color:var(--ink3); max-width:38ch}
+.mark{
+  width:26px; height:26px; border-radius:50%; flex:none;
+  background:radial-gradient(circle at 34% 32%, #eaf9ff 0 10%, var(--cyan) 20% 40%, #123240 55% 70%, #05080a 82%);
+  box-shadow:0 0 16px rgba(95,208,255,.4);
+}
+.tabs{display:flex; gap:4px}
+.tab{padding:7px 14px; border:1px solid var(--line2); border-radius:var(--rs); background:none; color:var(--ink3)}
+.tab.on{color:var(--ink); border-color:var(--cyan-dim); background:rgba(95,208,255,.08)}
+.tab.off{color:var(--ink3)}
+.status{margin-left:auto; display:flex; align-items:center; gap:18px; font-size:12px; color:var(--ink2)}
+.sim{display:flex; align-items:center; gap:7px}
+.dot{width:8px; height:8px; border-radius:50%; background:var(--ink3); display:inline-block}
+.dot.live{background:#4fd67a; box-shadow:0 0 8px rgba(79,214,122,.7)}
+
+/* ---------------- layout ---------------- */
+main{
+  display:grid; grid-template-columns:300px minmax(0,1fr) 340px; grid-template-rows:1fr auto;
+  min-height:0; gap:0;
+}
+main > *{min-width:0; min-height:0}
+.rail{background:var(--panel); overflow-y:auto; padding:14px 0 20px}
+.rail.left{border-right:1px solid var(--line)}
+.rail.right{border-left:1px solid var(--line); display:flex; flex-direction:column; gap:1px; overflow-y:auto}
+.rail-title{
+  font-family:var(--fm); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink3); padding:0 16px; margin:16px 0 10px; display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.rail-title:first-child{margin-top:0}
+
+/* world control rows */
+#worldControls{padding:0 16px}
+.wc-row{padding:10px 0; border-bottom:1px solid var(--line)}
+.wc-row:last-child{border-bottom:none}
+.wc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px}
+.wc-label{font-size:12.5px; color:var(--ink)}
+.wc-row.wc-off .wc-label{color:var(--ink3)}
+.wc-badge{
+  font-family:var(--fm); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink3); border:1px solid var(--line2); border-radius:4px; padding:1px 6px;
+}
+.wc-slider{display:flex; align-items:center; gap:8px}
+.wc-slider input[type=range]{flex:1; accent-color:var(--cyan)}
+.wc-slider input:disabled{accent-color:var(--ink3)}
+.wc-val{font-size:11.5px; color:var(--ink2); min-width:4ch; text-align:right}
+.wc-toggle{
+  width:100%; text-align:left; padding:6px 10px; border:1px solid var(--line2); border-radius:var(--rs);
+  background:var(--panel2); color:var(--ink2); font-family:var(--fm); font-size:11px; letter-spacing:.08em;
+}
+.wc-toggle.on{color:#0a1b12; background:#4fd67a; border-color:#4fd67a}
+.wc-note{margin:6px 0 0; font-size:11px; color:var(--ink3); line-height:1.4}
+.wc-row.wc-off .wc-note{color:#7a5b45}
+
+.scenario{padding:0 16px; display:flex; flex-direction:column; gap:8px}
+.scenario-name{font-size:12.5px; color:var(--ink2)}
+.btn{padding:8px 12px; border:1px solid var(--line2); border-radius:var(--rs); background:var(--panel2); color:var(--ink)}
+.btn:hover{border-color:var(--cyan)}
+
+/* center 3D view */
+.center{position:relative; background:#070c0f}
+#flyWell{width:100%; height:100%; display:block}
+#radar{position:absolute; left:14px; bottom:14px; width:120px; height:120px; background:rgba(6,12,15,.55); border:1px solid var(--line2); border-radius:50%}
+.overlay{
+  position:absolute; right:14px; bottom:14px; background:rgba(6,12,15,.72); border:1px solid var(--line2);
+  border-radius:var(--r); padding:10px 14px; display:flex; gap:18px;
+}
+.overlay dl{margin:0; display:grid; grid-template-columns:auto auto; gap:2px 10px; font-size:11.5px}
+.overlay dt{color:var(--ink3)}
+.overlay dd{margin:0; color:var(--ink); text-align:right}
+
+/* right rail panels */
+.panel{padding:0 0 6px}
+.panel .rail-title{margin-top:16px}
+.regions{
+  background:var(--panel2); color:var(--ink3); border:1px solid var(--line2); border-radius:4px;
+  font-family:var(--fm); font-size:10.5px; padding:2px 6px;
+}
+#brainWell{width:100%; height:170px; display:block; background:#070c0f}
+.activity-stats{padding:10px 16px 4px; display:flex; flex-direction:column; gap:4px; font-size:12px}
+.activity-stats b{font-size:15px; color:var(--cyan); margin-right:6px}
+.activity-stats i{font-style:normal; color:var(--ink3)}
+
+.beh-mode{
+  font-family:var(--fm); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--cyan); border:1px solid var(--cyan-dim); border-radius:4px; padding:1px 6px;
+}
+.beh-current-row{padding:0 16px 8px; display:flex; align-items:baseline; gap:10px}
+.beh-current{font-size:15px; text-transform:uppercase; letter-spacing:.04em}
+.beh-score{font-size:11.5px; color:var(--ink3)}
+#behaveRows{padding:0 16px}
+.beh-row{display:grid; grid-template-columns:112px 1fr 40px; align-items:center; gap:8px; padding:4px 0}
+.beh-name{font-size:11.5px; color:var(--ink2)}
+.beh-row.on .beh-name{color:var(--ink)}
+.beh-bar{height:6px; background:var(--line); border-radius:3px; overflow:hidden}
+.beh-bar > i{display:block; height:100%; width:0; background:var(--cyan); transition:width .2s ease}
+.beh-row.on .beh-bar > i{background:#4fd67a}
+.beh-num{font-size:11px; color:var(--ink3); text-align:right}
+
+/* pipeline */
+.pipeline{
+  grid-column:1 / -1; display:flex; align-items:stretch; gap:10px; padding:14px 20px;
+  background:var(--panel); border-top:1px solid var(--line);
+}
+.pipe-node{
+  flex:1; background:var(--panel2); border:1px solid var(--line2); border-radius:var(--r);
+  padding:10px 14px; text-align:center;
+}
+.pipe-node h3{font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3); margin:0 0 6px}
+.pipe-node b{font-size:20px; color:var(--cyan)}
+.pipe-arrow{display:flex; align-items:center; color:var(--ink3); font-size:16px}
+
+@media (max-width: 1100px){
+  main{grid-template-columns:1fr; grid-template-rows:auto auto auto auto}
+  .rail.left, .rail.right{border:none; border-top:1px solid var(--line)}
+  .center{height:60vh}
+  .pipeline{flex-wrap:wrap}
+}
