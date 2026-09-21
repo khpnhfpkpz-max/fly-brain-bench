@@ -7,7 +7,7 @@
 <meta name="description" content="Control the world and the brain of a real fly connectome. Phase 1: world control, brain engine and decoder wired together.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,87 +32,135 @@
       <p>You don&rsquo;t control the creature. You control its world and its brain.</p>
     </div>
   </div>
+
   <nav class="tabs">
     <button class="tab on" type="button">World</button>
     <button class="tab on" type="button">Neural</button>
     <button class="tab off" type="button" disabled title="Not implemented in Phase 1">Experiment</button>
     <button class="tab off" type="button" disabled title="Not implemented in Phase 1">Evolution</button>
   </nav>
-  <div class="status mono">
-    <span class="sim"><i id="simDot" class="dot"></i><b id="simLabel">PAUSED</b></span>
-    <span><b id="statFps">0</b> fps</span>
+
+  <div class="status">
+    <span class="pill mono">
+      <i class="dot sim-idle"></i>Simulation
+      <i id="simDot" class="dot"></i><b id="simLabel">PAUSED</b>
+    </span>
+    <span class="pill mono">FPS <b id="statFps">0</b></span>
+    <button id="btnSettings" class="icon-btn" type="button" aria-label="Settings" title="Graphics settings"></button>
+    <div id="settingsPop" class="pop">
+      <h3>Graphics</h3>
+      <div class="seg">
+        <button id="qHigh" class="seg-btn" type="button">High</button>
+        <button id="qLow" class="seg-btn" type="button">Low</button>
+      </div>
+      <p class="pop-note">Low turns off the water reflection, bloom, shadows and multisampling and renders at pixel ratio 1. The simulation, the decoder and the world wiring are identical either way.</p>
+      <button id="btnResetCam" class="btn wide" type="button">Reset camera</button>
+    </div>
   </div>
 </header>
 
 <main>
   <section class="rail left">
-    <h2 class="rail-title">World control</h2>
-    <div id="worldControls"></div>
-    <h2 class="rail-title">Scenario</h2>
-    <div class="scenario">
-      <div class="scenario-name">Default Arena</div>
-      <button id="btnResetWorld" class="btn" type="button">Reset World</button>
+    <div class="panel">
+      <h2 class="panel-title">World control</h2>
+      <div id="worldControls"></div>
+    </div>
+    <div class="panel">
+      <h2 class="panel-title">Scenario</h2>
+      <div class="scenario">
+        <div class="scenario-name mono">Default Arena</div>
+        <button id="btnResetWorld" class="btn wide" type="button">Reset World</button>
+      </div>
     </div>
   </section>
 
   <section class="center">
     <canvas id="flyWell"></canvas>
+    <div id="sceneLabels" class="scene-labels"></div>
+
+    <div class="cam-chip mono">
+      <span>CAMERA</span>
+      <select id="cameraMode" aria-label="Camera mode">
+        <option value="free">Free</option>
+        <option value="follow">Follow</option>
+        <option value="orbit">Orbit</option>
+      </select>
+    </div>
+
     <canvas id="radar"></canvas>
+
     <div class="overlay">
-      <dl>
-        <dt>Behavior</dt><dd id="overlayBehaviour" class="mono">&ndash;</dd>
+      <dl class="ov-main">
+        <dt>Behavior</dt><dd id="overlayBehaviour" class="mono strong">&ndash;</dd>
         <dt>Confidence</dt><dd id="overlayConfidence" class="mono">0.00</dd>
         <dt>Direction</dt><dd id="overlayDirection" class="mono">0&deg;</dd>
       </dl>
-      <dl>
-        <dt id="overlayPos" class="mono">X:0.0 Z:0.0</dt>
-        <dt id="overlaySpeed" class="mono">0.00 u/s</dt>
-      </dl>
+      <div class="ov-sub mono">
+        <span id="overlayPos">X:0.0 Z:0.0</span>
+        <span id="overlaySpeed">0.00 u/s</span>
+      </div>
     </div>
   </section>
 
   <section class="rail right">
     <div class="panel">
-      <h2 class="rail-title">Neural activity <select class="regions" disabled title="Region filtering ships in a later phase"><option>All regions</option></select></h2>
+      <h2 class="panel-title">
+        Neural activity
+        <select class="regions mono" disabled title="Region filtering ships in a later phase"><option>All regions</option></select>
+      </h2>
       <canvas id="brainWell"></canvas>
-      <div class="activity-stats mono">
-        <div><b id="statActive">0</b><i>active neurons / <span id="totalNeurons">0</span></i></div>
-        <div><b id="statHz">0.0</b><i>Hz mean rate, responding cells</i></div>
-        <div class="dim"><span id="totalEdges">0</span> connections total</div>
+      <div class="activity-stats">
+        <div class="stat">
+          <b id="statActive" class="mono">0</b>
+          <i>active neurons <span class="dim">/ <span id="totalNeurons" class="mono">0</span></span></i>
+        </div>
+        <div class="stat">
+          <b id="statHz" class="mono">0.0</b>
+          <i>Hz mean rate <span class="dim">responding cells</span></i>
+        </div>
       </div>
+      <div id="ntLegend" class="nt-legend mono"></div>
+      <p class="panel-note">Colour is the cell&rsquo;s neurotransmitter; brightness is how recently it fired. There is no firing-rate colour scale, so none is shown. <span class="dim"><span id="totalEdges" class="mono">0</span> connections in this package.</span></p>
     </div>
+
     <div class="panel" id="behaviorPanel">
-      <h2 class="rail-title">Behavior <span class="beh-mode mono">Activation</span></h2>
+      <h2 class="panel-title">Behavior <span class="beh-mode mono">Activation</span></h2>
       <div class="beh-current-row">
-        <span class="beh-current mono">&ndash;</span>
+        <span class="beh-current">&ndash;</span>
         <span class="beh-score mono"></span>
       </div>
       <div id="behaveRows"></div>
+      <p class="panel-note">Before a readout is trained, the decoder emits independent channel drives, not a nine-way probability &mdash; so these are labelled Activation.</p>
     </div>
   </section>
 
   <section class="pipeline">
     <div class="pipe-node">
+      <span class="pipe-orb s1"></span>
       <h3>Sensory Input</h3>
       <b id="pipeSensoryInput" class="mono">0</b>
     </div>
     <div class="pipe-arrow">&rarr;</div>
     <div class="pipe-node">
+      <span class="pipe-orb s2"></span>
       <h3>Sensory Neurons</h3>
       <b id="pipeSensory" class="mono">0</b>
     </div>
     <div class="pipe-arrow">&rarr;</div>
     <div class="pipe-node">
+      <span class="pipe-orb s3"></span>
       <h3>Interneurons</h3>
       <b id="pipeInter" class="mono">0</b>
     </div>
     <div class="pipe-arrow">&rarr;</div>
     <div class="pipe-node">
+      <span class="pipe-orb s4"></span>
       <h3>Descending Neurons</h3>
       <b id="pipeDescending" class="mono">0</b>
     </div>
     <div class="pipe-arrow">&rarr;</div>
     <div class="pipe-node">
+      <span class="pipe-orb s5"></span>
       <h3>Motor Output</h3>
       <b id="pipeMotor" class="mono">0</b>
     </div>

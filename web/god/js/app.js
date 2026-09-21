@@ -9,14 +9,13 @@
    activity itself -- it only reads what the worker actually reports. */
 import { fetchGz, decodeConnectome, decodePositions, decodeLabels } from '../../js/data.js';
 import { BrainView } from '../../js/gl.js';
-import { FlyView } from '../../js/fly.js';
 import { Decoder } from '../../js/decoder.js';
 import { PARAMS } from '../../js/lif-core.js';
+import { WorldView } from './world-view.js';
 import { initWorldControl } from './world-control.js';
 import { computeStageCounts } from './pipeline.js';
 import { computeBehaviorPanel, buildBehaviorRows, renderBehaviorPanel, BEHAVIOUR_LABEL } from './behavior.js';
 import { Radar } from './radar.js';
-import { setupSceneProps } from './scene-props.js';
 
 const $ = s => document.querySelector(s);
 const NT_COLOR = {
@@ -27,10 +26,11 @@ const NT_COLOR = {
 };
 const RESPOND_HZ = 1;             // "responding" cutoff, same as the main bench's response list
 const READOUT_MS = 200;           // same cadence as web/js/app.js's readout()
+const QUALITY_KEY = 'neural-god-quality';
 
 const S = {
   meta: null, dicts: null, labels: null,
-  view: null, fly: null, dec: null, props: null, radar: null,
+  view: null, world: null, dec: null, radar: null,
   worker: null, ready: false,
   hz: null, spikeAccum: null, winCount: null,
   t: 0, nActive: 0, totalSpikes: 0,
@@ -50,6 +50,13 @@ function showBootError(err) {
   $('#loadLabel').textContent = 'Failed to load';
   $('#loadDetail').textContent = err.message;
   $('#loadDetail').classList.add('err');
+}
+
+function readQuality() {
+  try { return localStorage.getItem(QUALITY_KEY) === 'low' ? 'low' : 'high'; } catch (_) { return 'high'; }
+}
+function storeQuality(q) {
+  try { localStorage.setItem(QUALITY_KEY, q); } catch (_) { /* private mode */ }
 }
 
 async function boot() {
@@ -89,10 +96,12 @@ async function boot() {
     S.view.hideMissingPositions(provenance.missing);
     S.view.autoRotate = true;
     S.view.setNTColors(meta.dicts.top_nt.map(n => NT_COLOR[n] || NT_COLOR.unknown));
+    buildNTLegend(meta.dicts.top_nt);
 
-    S.fly = new FlyView($('#flyWell'), { arena: false });
-    S.props = setupSceneProps(S.fly.scene);
+    const quality = readQuality();
+    S.world = new WorldView($('#flyWell'), { labelContainer: $('#sceneLabels'), quality });
     S.radar = new Radar($('#radar'));
+    markQuality(quality);
 
     S.dec = new Decoder(channels.channels, channels.features);
     buildBehaviorRows($('#behaveRows'));
@@ -118,12 +127,12 @@ async function boot() {
     applyWorldVisuals(wc.state);
     applyStimulus(wc.initialStimulus);
 
+    bindViewControls();
     setRunning(true);
     requestAnimationFrame(loop);
   } catch (err) {
     showBootError(err);
     console.error(err);
-    return;
   }
 }
 
@@ -147,8 +156,8 @@ function applyStimulus(built) {
 }
 
 function applyWorldVisuals(state) {
-  S.props.setPredatorVisible(!!state.predator);
-  S.props.setFoodVisible(!!state.food);
+  S.world.setPredatorVisible(!!state.predator);
+  S.world.setFoodVisible(!!state.food);
 }
 
 function setRunning(on) {
@@ -157,11 +166,47 @@ function setRunning(on) {
   $('#simLabel').textContent = on ? 'LIVE' : 'PAUSED';
 }
 
-$('#btnResetWorld')?.addEventListener('click', () => {
-  S.spikeAccum.fill(0); S.winCount.fill(0); S.hz.fill(0);
-  S.view.act.fill(0); S.view.uploadAct();
-  S.worker.postMessage({ cmd: 'reset' });
-});
+/* The neurotransmitter legend is the honest one: in web/js/gl.js a point's
+   hue is its transmitter and its brightness is how recently it fired. There
+   is no firing-rate colour scale to label. */
+function buildNTLegend(names) {
+  const box = $('#ntLegend');
+  box.innerHTML = names.map(n => {
+    const c = (NT_COLOR[n] || NT_COLOR.unknown).map(x => Math.round(x * 255)).join(',');
+    return `<span class="nt"><i style="background:rgb(${c})"></i>${n}</span>`;
+  }).join('');
+}
+
+function markQuality(q) {
+  $('#qHigh').classList.toggle('on', q === 'high');
+  $('#qLow').classList.toggle('on', q === 'low');
+}
+
+function bindViewControls() {
+  $('#btnResetWorld').addEventListener('click', () => {
+    S.spikeAccum.fill(0); S.winCount.fill(0); S.hz.fill(0);
+    S.view.act.fill(0); S.view.uploadAct();
+    S.worker.postMessage({ cmd: 'reset' });
+  });
+  $('#cameraMode').addEventListener('change', e => S.world.setCameraMode(e.target.value));
+  $('#btnResetCam').addEventListener('click', () => S.world.resetCamera());
+  $('#btnSettings').addEventListener('click', e => {
+    e.stopPropagation();
+    $('#settingsPop').classList.toggle('open');
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#settingsPop') && !e.target.closest('#btnSettings')) {
+      $('#settingsPop').classList.remove('open');
+    }
+  });
+  for (const [id, q] of [['#qHigh', 'high'], ['#qLow', 'low']]) {
+    $(id).addEventListener('click', () => {
+      S.world.setQuality(q);
+      storeQuality(q);
+      markQuality(q);
+    });
+  }
+}
 
 /* ---------------- frame loop ---------------- */
 let last = performance.now(), fpsAcc = 0, fpsN = 0;
@@ -181,9 +226,9 @@ function loop(now) {
     S.view.draw(dt);
 
     const drive = S.dec.decode(S.hz);
-    S.fly.update(drive, dt);
-    S.fly.draw(dt);
-    S.radar.draw(S.fly.rig.s.x, S.fly.rig.s.z, S.fly.rig.s.heading);
+    S.world.update(drive, dt);
+    S.world.draw(dt);
+    S.radar.draw(S.world.rig.s.x, S.world.rig.s.z, S.world.rig.s.heading);
 
     if (now - S.lastReadout > READOUT_MS) { readout(now); S.lastReadout = now; }
   }
@@ -218,9 +263,10 @@ function readout(now) {
   renderBehaviorPanel($('#behaviorPanel'), panel);
   $('#overlayBehaviour').textContent = BEHAVIOUR_LABEL[panel.current];
   $('#overlayConfidence').textContent = panel.score.toFixed(2);
-  $('#overlayDirection').textContent = `${Math.round(((S.fly.rig.s.heading * 180 / Math.PI) % 360 + 360) % 360)}°`;
-  $('#overlayPos').textContent = `X:${S.fly.rig.s.x.toFixed(1)} Z:${S.fly.rig.s.z.toFixed(1)}`;
-  $('#overlaySpeed').textContent = `${Math.abs(S.fly.rig.s.speed).toFixed(2)} u/s`;
+  $('#overlayDirection').textContent = `${Math.round(((S.world.rig.s.heading * 180 / Math.PI) % 360 + 360) % 360)}°`;
+  $('#overlayPos').textContent = `X:${S.world.rig.s.x.toFixed(1)} Z:${S.world.rig.s.z.toFixed(1)}`;
+  $('#overlaySpeed').textContent = `${Math.abs(S.world.rig.s.speed).toFixed(2)} u/s`;
 }
 
+window.neuralGod = S;          // same debugging convention as the bench's `window.bench`
 boot();

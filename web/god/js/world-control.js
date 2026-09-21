@@ -92,6 +92,7 @@ function renderUI(container, state, onInput) {
   for (const c of WORLD_CONTROLS) {
     const row = document.createElement('div');
     row.className = 'wc-row' + (c.presetId ? '' : ' wc-off');
+    row.dataset.id = c.id;                 // presentation only: CSS hangs the row icon off this
 
     const head = document.createElement('div');
     head.className = 'wc-head';
