@@ -23,6 +23,10 @@ import { createIntervention } from './intervention.js';
 import { REGIONS, buildRegionMembership, applyRegionFilter } from './regions.js';
 import { bindBrainPinchZoom } from './touch-brain.js';
 import { bindMobileTabsCollapse } from './mobile-header.js';
+import { ACTIONS, createExperienceLearning, resolveSensoryIds } from './experience-learning.js';
+import { createExperienceStore } from './experience-store.js';
+import { createRewardManager } from './reward-manager.js';
+import { buildLearningActionRows, buildRewardsUI, renderLearningPanel } from './learning-panel.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -35,6 +39,7 @@ const NT_COLOR = {
 const RESPOND_HZ = 1;             // "responding" cutoff, same as the main bench's response list
 const READOUT_MS = 200;           // same cadence as web/js/app.js's readout() -- also the decoder's own update rate
 const QUALITY_KEY = 'neural-god-quality';
+const LEARNING_KEY = 'neural-god-learning-state';
 
 /* The 3D world still redraws every rAF tick (smooth camera and gait), but
    these two are visual bookkeeping that gains nothing from running faster
@@ -55,14 +60,19 @@ const NEUTRAL_DRIVE = { walk: 0, turn: 0, stop: 0, backward: 0, escape: 0, probo
 
 const S = {
   meta: null, dicts: null, labels: null, channels: null,
-  view: null, world: null, dec: null, radar: null, pacer: null, inspector: null, hack: null,
+  view: null, world: null, dec: null, radar: null, pacer: null, inspector: null, hack: null, learning: null,
   experimentRunning: false,
   regionMembership: null,
   worker: null, ready: false,
   hz: null, spikeAccum: null, winCount: null,
   t: 0, nActive: 0, totalSpikes: 0,
   activeStim: { idx: new Int32Array(0), rates: new Float32Array(0), activeCount: 0 },
-  drive: NEUTRAL_DRIVE,
+  /* `drive` is always the decoder's own, unmodified output -- the Behavior
+     panel, the Overlay and anything else reading S.drive sees exactly what
+     the Brain produced, with or without the Experience Learning Layer.
+     `driveOut` is what actually reaches the world (loop() below); with the
+     layer OFF, driveOut === drive, the same object, not a copy. */
+  drive: NEUTRAL_DRIVE, driveOut: NEUTRAL_DRIVE,
   lastReadout: 0, brainAcc: 0, radarAcc: 0,
 };
 
@@ -195,6 +205,7 @@ async function boot() {
     applyWorldVisuals(S.wc.state);
     applyStimulus(S.wc.initialStimulus);
 
+    initLearning();
     buildScenarioPicker();
     bindViewControls();
     setRunning(true);
@@ -255,6 +266,85 @@ function setExperimentMode(on) {
   S.pacer.setEnabled(!on);
   $('#simDot').classList.toggle('live', !on);
   $('#simLabel').textContent = on ? 'EXPERIMENT' : 'LIVE';
+}
+
+/* ---------------- Experience Learning Layer ----------------
+   Brain -> Behavior candidates -> Experience Learning Layer -> Action
+   selection -> World. Wires createExperienceLearning() (pure logic, tested
+   in isolation in tests/experience-learning.test.mjs) to the LEARNING
+   panel's DOM and to localStorage; readout() below is what actually calls
+   S.learning.step() once per 200ms tick. */
+function initLearning() {
+  const { foodIds, dangerIds } = resolveSensoryIds(S.dicts, S.labels);
+  const store = createExperienceStore();
+  const rewards = createRewardManager();
+  S.learning = createExperienceLearning({ foodIds, dangerIds, store, rewards });
+  S.learningStore = store;
+  S.learningRewards = rewards;
+
+  buildLearningActionRows($('#lrnActionRows'));
+  buildRewardsUI($('#lrnRewards'), rewards, () => renderLearning());
+
+  loadLearningState();   // a saved state (if any) restores before the first render below
+
+  $('#lrnEnabled').checked = S.learning.enabled;
+  $('#lrnEnabled').addEventListener('change', e => S.learning.setEnabled(e.target.checked));
+
+  $('#lrnRewardsEnabled').checked = rewards.enabled;
+  $('#lrnRewardsEnabled').addEventListener('change', e => rewards.setEnabled(e.target.checked));
+
+  const bindRange = (id, valId, onInput, fmt = v => v) => {
+    const el = $(`#${id}`), out = $(`#${valId}`);
+    el.addEventListener('input', () => { onInput(+el.value); out.textContent = fmt(+el.value); });
+  };
+  bindRange('lrnLearningRate', 'lrnLearningRateVal', v => store.configure({ learningRate: v }), v => v.toFixed(2));
+  bindRange('lrnMemoryDecay', 'lrnMemoryDecayVal', v => store.configure({ memoryDecay: v }), v => v.toFixed(3));
+  bindRange('lrnInfluence', 'lrnInfluenceVal', v => S.learning.setInfluence(v), v => v.toFixed(2));
+  const cfg = store.getConfig();
+  $('#lrnLearningRate').value = cfg.learningRate; $('#lrnLearningRateVal').textContent = cfg.learningRate.toFixed(2);
+  $('#lrnMemoryDecay').value = cfg.memoryDecay; $('#lrnMemoryDecayVal').textContent = cfg.memoryDecay.toFixed(3);
+  $('#lrnInfluence').value = S.learning.influence; $('#lrnInfluenceVal').textContent = S.learning.influence.toFixed(2);
+
+  $('#lrnReset').addEventListener('click', () => {
+    S.learning.reset();
+    try { localStorage.removeItem(LEARNING_KEY); } catch (_) { /* private mode */ }
+    setText($('#lrnSaveStatus'), 'Reset.');
+    renderLearning();
+  });
+  $('#lrnSave').addEventListener('click', () => {
+    try {
+      localStorage.setItem(LEARNING_KEY, store.serialize());
+      setText($('#lrnSaveStatus'), 'Saved.');
+    } catch (_) {
+      setText($('#lrnSaveStatus'), 'Could not save (private mode?).');
+    }
+  });
+
+  S.lastLearningResult = { stateKey: 'f0d0', currentReward: 0 };
+  renderLearning();
+}
+
+function loadLearningState() {
+  let raw;
+  try { raw = localStorage.getItem(LEARNING_KEY); } catch (_) { return; }
+  if (raw) S.learningStore.loadFrom(raw);
+}
+
+function renderLearning() {
+  const store = S.learningStore;
+  const stateKey = S.lastLearningResult?.stateKey ?? 'f0d0';
+  const actionValues = {};
+  for (const a of ACTIONS) actionValues[a] = store.getValue(stateKey, a);
+  renderLearningPanel($('#learningPanel'), {
+    experienceCount: store.experienceCount,
+    totalReward: store.totalReward,
+    currentReward: S.lastLearningResult?.currentReward ?? 0,
+    cellsTouched: Object.keys(store.allValues()).length,
+    cellsTotal: 81,
+    stateKey,
+    actionValues,
+    recent: store.recentExperiences(8),
+  });
 }
 
 /* The neurotransmitter legend is the honest one: in web/js/gl.js a point's
@@ -377,7 +467,7 @@ function loop(now) {
        `S.drive` itself only changes at READOUT_MS (see readout() below):
        recomputing decode() here as well was recomputing the same answer
        up to a dozen times between the readouts that actually change it. */
-    S.world.update(S.drive, dt);
+    S.world.update(S.driveOut, dt);
     S.world.draw(dt);
 
     S.brainAcc += dt;
@@ -444,6 +534,23 @@ function readout(now) {
   setText($('#overlayDirection'), `${Math.round(((S.world.rig.s.heading * 180 / Math.PI) % 360 + 360) % 360)}°`);
   setText($('#overlayPos'), `X:${S.world.rig.s.x.toFixed(1)} Z:${S.world.rig.s.z.toFixed(1)}`);
   setText($('#overlaySpeed'), `${Math.abs(S.world.rig.s.speed).toFixed(2)} u/s`);
+
+  /* S.drive above is untouched -- the Behavior panel and Overlay just read
+     it exactly as they always have. S.driveOut is the only thing that
+     changes: with the layer off, it stays the very same object as S.drive
+     (see initLearning()'s createExperienceLearning() and its own
+     unit-tested guarantee); with it on, loop() below picks up the modulated
+     copy instead, which never mutates S.drive itself. */
+  if (S.learning) {
+    S.lastLearningResult = S.learning.step({
+      hz, drive: S.drive, action: panel.current,
+      flyPos: { x: S.world.rig.s.x, z: S.world.rig.s.z },
+      foodPos: { x: S.world.food.position.x, z: S.world.food.position.z },
+      timestamp: now,
+    });
+    S.driveOut = S.lastLearningResult.outDrive;
+    renderLearning();
+  }
 
   S.inspector?.sampleHistory();   // same 5 Hz cadence hz[] itself just updated at
 }

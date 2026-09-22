@@ -207,6 +207,61 @@
     </div>
   </section>
 
+  <p class="mobile-only-notice">Experience Learning Layer is available on the desktop version.</p>
+
+  <section class="panel learning" id="learningPanel">
+    <h2 class="panel-title">Experience Learning Layer <span class="panel-tag mono">simulated</span></h2>
+
+    <div class="lrn-layout">
+      <div class="lrn-left">
+        <div class="lrn-toggle-row">
+          <label class="lrn-check"><input id="lrnEnabled" type="checkbox" checked> Learning enabled</label>
+          <label class="lrn-check"><input id="lrnRewardsEnabled" type="checkbox" checked> Rewards enabled</label>
+        </div>
+
+        <div class="activity-stats lrn-stats">
+          <div class="stat"><b id="lrnCount" class="mono">0</b><i>experiences logged</i></div>
+          <div class="stat"><b id="lrnTotalReward" class="mono">0</b><i>total reward</i></div>
+          <div class="stat"><b id="lrnCurrentReward" class="mono">0</b><i>current reward (this tick)</i></div>
+          <div class="stat"><b id="lrnCellsTouched" class="mono">0/81</b><i>state-action cells touched</i></div>
+        </div>
+        <p class="panel-note">&ldquo;Cells touched&rdquo; is a literal count of how many of the 81 (state &times; action) combinations have recorded at least one experience &mdash; not a claim about accuracy or how well anything has &ldquo;learned&rdquo;.</p>
+
+        <h4 class="lrn-sub">Action Value <span class="mono dim" id="lrnStateLabel">state f0d0</span></h4>
+        <div id="lrnActionRows"></div>
+        <p class="panel-note">Plain learned numbers (<code>value += learningRate &times; (reward &minus; value)</code>), shown as &ldquo;Action Value&rdquo; &mdash; never &ldquo;confidence&rdquo; or &ldquo;probability&rdquo;, since no probability model is computed here.</p>
+      </div>
+
+      <div class="lrn-right">
+        <h4 class="lrn-sub">Recent experiences</h4>
+        <div id="lrnLog" class="lrn-log"></div>
+
+        <h4 class="lrn-sub">Settings</h4>
+        <div class="lrn-settings">
+          <label>Learning rate <input id="lrnLearningRate" type="range" min="0" max="1" step="0.01" value="0.15"><span id="lrnLearningRateVal" class="mono">0.15</span></label>
+          <label>Memory decay <input id="lrnMemoryDecay" type="range" min="0.90" max="1" step="0.001" value="0.995"><span id="lrnMemoryDecayVal" class="mono">0.995</span></label>
+          <label>Influence <input id="lrnInfluence" type="range" min="0" max="1" step="0.01" value="0.3"><span id="lrnInfluenceVal" class="mono">0.30</span></label>
+        </div>
+
+        <h4 class="lrn-sub">Rewards</h4>
+        <div class="lrn-rewards" id="lrnRewards"></div>
+
+        <div class="lrn-actions">
+          <button id="lrnReset" class="btn wide ghost" type="button">Reset Learning</button>
+          <button id="lrnSave" class="btn wide" type="button">Save Learning</button>
+          <span id="lrnSaveStatus" class="dim mono lrn-save-status"></span>
+        </div>
+      </div>
+    </div>
+
+    <ul class="iv-caveats lrn-caveats">
+      <li><b>FOOD_EATEN</b> is detected as proboscis extension (the decoder's own output) <i>and</i> the fly being within a set distance of the food's actual 3D position &mdash; proboscis extension alone is not counted as eating.</li>
+      <li><b>This is not spatial navigation learning.</b> These stimuli carry no directional information, so the fly does not learn to walk toward food. What changes is how strongly an already-existing behaviour (feeding, escaping) is expressed the next time the same food/danger situation recurs.</li>
+      <li><b>&ldquo;Experience Learning Layer&rdquo; / &ldquo;simulated learning&rdquo;</b> &mdash; an added layer on top of the FlyWire connectome, not a claim that the biological connectome itself is learning. The connectome's neuron count, synapses, weights and the LIF engine are all unchanged; turn this layer off and the world responds exactly as it always has.</li>
+      <li><b>DEATH/SURVIVAL and COLLISION are not implemented.</b> This simulation has no concept of the fly dying or of colliding with anything, so neither event is ever emitted (COLLISION stays in the reward table below only so a future collision system has somewhere to plug in).</li>
+    </ul>
+  </section>
+
   <p class="mobile-only-notice">The Normal vs Intervention comparison experiment is available on the desktop version. Stimulate, Suppress and Disable are still available above, in the Neural inspector.</p>
 
   <section class="panel hacking">
