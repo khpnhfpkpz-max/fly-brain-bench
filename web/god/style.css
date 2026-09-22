@@ -581,16 +581,43 @@ main > *{min-width:0; min-height:0}
   .tabs{order:3; width:100%; margin:0; justify-content:flex-start; overflow-x:auto; -webkit-overflow-scrolling:touch}
   .status{margin-left:auto}
 
-  /* DOM order stacks World Control (all ten sliders/toggles, ~1600px
-     expanded) ahead of the 3D world in the single-column layout -- found
-     by actually measuring where #flyWell ends up (getBoundingClientRect
-     placed it ~1800px down the page), which would leave a phone visitor
-     scrolling past two and a half screens of sliders before ever seeing
-     the fly. A grid `order` moves the world to the top of the stack
-     without touching index.html's DOM order or affecting the desktop
-     grid (main's columns there place it visually in the middle already;
-     `order` is a no-op at any width above this media query). */
-  .center{height:46vh; order:-1}
+  /* Phase 6: pin the 3D world at the top of the screen instead of letting
+     it scroll away with the panels below it (the original order:-1 fix
+     only moved it to the front of the scroll -- it still scrolled fully
+     off-screen the moment World Control was scrolled into view, which is
+     exactly the complaint: toggling Food no longer showed the fly react).
+
+     position:sticky does not work here: `.center` is a direct CSS Grid
+     item of `main` (grid-auto-rows:max-content), so its containing block
+     for sticky purposes -- its own grid area -- is sized to exactly its
+     own content height, with zero slack for it to "stick" within. fixed
+     sidesteps that entirely by positioning against the viewport, at the
+     cost of taking `.center` out of grid flow (so `order` no longer does
+     anything and is dropped) and needing `main`'s own top padding, below,
+     to reserve the screen space `.center` used to occupy so the panels
+     start right where the pinned view ends rather than underneath it.
+
+     top:171px is main's header height (159px, measured with Playwright
+     across 360-430px -- the width range this query covers -- and stable
+     there: the header wraps to a fixed two-row layout of brand+status
+     then the tabs, which scroll horizontally rather than wrapping to a
+     third row) plus main's own 12px top padding, i.e. exactly where
+     `.center` already rendered before this change (measured: 171px). The
+     12px left/right insets match main's own left/right padding, so the
+     pinned rectangle is the same width and position it always was, not a
+     new edge-to-edge one. `main` is already the scrolling element
+     (`overflow-y:auto`, not body -- body is `overflow:hidden` and only
+     holds the never-scrolling header + main as two grid rows), so a touch
+     below the pinned rectangle scrolls main exactly as before; a touch on
+     the pinned rectangle still reaches world-view.js's own pointer
+     handlers unchanged, since neither its binding nor #flyWell's
+     touch-action:none depend on `.center`'s position property. The two
+     are disjoint screen rectangles, so a single touch is never claimed by
+     both. */
+  .center{
+    position:fixed; top:171px; left:12px; right:12px; height:46vh; z-index:15;
+  }
+  main{padding-top:calc(46vh + 12px)}
   #flyWell, #brainWell{touch-action:none}   /* let our own pointer/pinch handling own these canvases (T1) */
 
   /* Tap targets: the audit measured several controls below the 44x44px
