@@ -25,6 +25,7 @@ import { REGIONS, regionOf } from './regions.js';
 const HISTORY_LEN = 50;          // 50 samples at the 5 Hz readout rate = 10 s of real history
 const NEIGHBOR_MAX = 300;        // edges returned per query; degree/synapse totals are always exact, uncapped
 const CHANNEL_NAMES = ['escape', 'turn', 'stop', 'backward', 'landing', 'wing', 'walk', 'proboscis'];
+const MODE_TEXT = { stim: 'stimulated', suppress: 'suppressed', off: 'disabled' };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -39,7 +40,7 @@ function buildTypeIndex(labels) {
   return map;
 }
 
-export function createInspector({ el, meta, dicts, labels, channels, dec, hz, worker, view, onRegionPick }) {
+export function createInspector({ el, meta, dicts, labels, channels, dec, hz, worker, view, onRegionPick, intervention }) {
   const N = labels.cellType.length;
   const typeIndex = buildTypeIndex(labels);
   const history = new Float32Array(HISTORY_LEN);
@@ -60,6 +61,7 @@ export function createInspector({ el, meta, dicts, labels, channels, dec, hz, wo
     view.sel.fill(0); view.sel[i] = 1; view.uploadSel();
     renderStatic();
     renderLive();
+    renderIntervene();
     requestNeighbors(i);
   }
 
@@ -67,6 +69,47 @@ export function createInspector({ el, meta, dicts, labels, channels, dec, hz, wo
     selected = -1;
     view.sel.fill(0); view.uploadSel();
     renderStatic();
+  }
+
+  /* ---------------- Phase 4: intervention controls ----------------
+
+     The buttons only set intervention state; everything about what an
+     intervention *does* lives in intervention.js and sim.worker.js. The
+     caveats under them are the honest limits of each mode, not decoration:
+     this engine has no inhibitory reversal potential, and Disable silences a
+     cell without touching the connectome, which is immutable here. */
+  function renderIntervene() {
+    if (!el.intervene || !intervention) return;
+    if (selected < 0) { el.intervene.innerHTML = ''; return; }
+    const i = selected;
+    const active = intervention.modeOf(i);
+    const hz = intervention.hzOf(i);
+    const btn = (mode, label) =>
+      `<button type="button" class="iv-btn ${mode}${active === mode ? ' on' : ''}" data-mode="${mode}">${label}</button>`;
+    el.intervene.innerHTML =
+      `<div class="iv-head"><h4>Intervene</h4>` +
+      `<span class="iv-state mono ${active ? 'on' : 'dim'}">${active ? MODE_TEXT[active] : 'normal'}</span></div>` +
+      `<div class="iv-btns">${btn('stim', 'Stimulate')}${btn('suppress', 'Suppress')}${btn('off', 'Disable')}` +
+      `<button type="button" class="iv-btn reset" data-mode="reset"${active ? '' : ' disabled'}>Reset</button></div>` +
+      `<label class="iv-hz${active === 'off' ? ' off' : ''}">Intensity <input id="insIvHz" type="range" min="10" max="300" step="10" value="${hz}">` +
+      `<b class="mono">${hz.toFixed(0)} Hz</b></label>` +
+      `<p class="iv-note dim">Stimulate and Suppress drive this cell with the engine's own Poisson input at the rate above &mdash; the same mechanism World control uses for sensory stimulus. Disable holds the cell in its refractory state so it cannot spike.</p>`;
+    for (const b of el.intervene.querySelectorAll('.iv-btn')) {
+      b.addEventListener('click', () => {
+        const mode = b.dataset.mode;
+        if (mode === 'reset') intervention.clear(i);
+        else if (active === mode) intervention.clear(i);
+        else intervention.setMode(i, mode, hz);
+        renderIntervene();
+      });
+    }
+    const slider = el.intervene.querySelector('#insIvHz');
+    slider?.addEventListener('input', () => {
+      const v = +slider.value;
+      el.intervene.querySelector('.iv-hz b').textContent = `${v} Hz`;
+      const m = intervention.modeOf(i);
+      if (m && m !== 'off') intervention.setMode(i, m, v);
+    });
   }
 
   function requestNeighbors(i) {
@@ -158,6 +201,7 @@ export function createInspector({ el, meta, dicts, labels, channels, dec, hz, wo
     if (selected < 0) {
       el.empty.style.display = '';
       el.body.style.display = 'none';
+      renderIntervene();
       return;
     }
     el.empty.style.display = 'none';
@@ -273,5 +317,6 @@ export function createInspector({ el, meta, dicts, labels, channels, dec, hz, wo
   });
   renderStatic();
 
-  return { select, clearSelection, onNeighbors, sampleHistory, get selectedIndex() { return selected; } };
+  return { select, clearSelection, onNeighbors, sampleHistory, renderIntervene,
+           get selectedIndex() { return selected; } };
 }

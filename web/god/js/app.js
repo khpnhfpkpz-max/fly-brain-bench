@@ -19,6 +19,7 @@ import { computeBehaviorPanel, buildBehaviorRows, renderBehaviorPanel, BEHAVIOUR
 import { Radar } from './radar.js';
 import { createSimPacer } from './sim-pacer.js';
 import { createInspector } from './inspector.js';
+import { createIntervention } from './intervention.js';
 import { REGIONS, buildRegionMembership, applyRegionFilter } from './regions.js';
 
 const $ = s => document.querySelector(s);
@@ -52,7 +53,8 @@ const NEUTRAL_DRIVE = { walk: 0, turn: 0, stop: 0, backward: 0, escape: 0, probo
 
 const S = {
   meta: null, dicts: null, labels: null, channels: null,
-  view: null, world: null, dec: null, radar: null, pacer: null, inspector: null,
+  view: null, world: null, dec: null, radar: null, pacer: null, inspector: null, hack: null,
+  experimentRunning: false,
   regionMembership: null,
   worker: null, ready: false,
   hz: null, spikeAccum: null, winCount: null,
@@ -150,17 +152,34 @@ async function boot() {
     );
     S.pacer = createSimPacer(S.worker, { runMs: 250, pauseMs: 250 });
 
+    S.hack = createIntervention({
+      el: {
+        banner: $('#ivBanner'), bannerCount: $('#ivBannerCount'), bannerReset: $('#ivBannerReset'),
+        list: $('#ivList'), trial: $('#ivTrial'), estimate: $('#ivEstimate'),
+        runBtn: $('#ivRun'), cancelBtn: $('#ivCancel'),
+        progressWrap: $('#ivProgressWrap'), progressBar: $('#ivProgressBar'), progressLabel: $('#ivProgressLabel'),
+        results: $('#ivResults'),
+      },
+      worker: S.worker, dec: S.dec, channels: S.channels,
+      dicts: S.dicts, labels: S.labels, defaultHz: PARAMS.RPOI,
+      onExperimentStart: () => setExperimentMode(true),
+      onExperimentEnd: () => setExperimentMode(false),
+    });
+
     S.inspector = createInspector({
       el: {
         search: $('#insSearch'), results: $('#insResults'),
         empty: $('#insEmpty'), body: $('#insBody'), title: $('#insTitle'), rootLink: $('#insRootLink'),
         meta: $('#insMeta'), rate: $('#insRate'), activity: $('#insActivity'), history: $('#insHistory'),
         connections: $('#insConnections'), involvement: $('#insInvolvement'),
+        intervene: $('#insIntervene'),
       },
       meta: S.meta, dicts: S.dicts, labels: S.labels, channels: S.channels,
       dec: S.dec, hz: S.hz, worker: S.worker, view: S.view,
       onRegionPick: applyRegionSelection,
+      intervention: S.hack,
     });
+    S.hack.onChange = () => S.inspector?.renderIntervene();
     bindBrainWellClick();
 
     S.wc = initWorldControl({
@@ -194,9 +213,16 @@ function onWorker(ev) {
     const sp = m.spikes;
     for (let k = 0; k < sp.length; k++) { const i = sp[k]; S.spikeAccum[i] = 1; S.winCount[i]++; }
     S.t = m.t; S.nActive = m.nActive; S.totalSpikes = m.totalSpikes;
+    S.hack?.noteFrame(m.t);
     return;
   }
   if (m.type === 'neighbors') { S.inspector?.onNeighbors(m); return; }
+  if (m.type === 'intervention') { S.hack?.onMessage(m); return; }
+  if (m.type === 'experiment' || m.type === 'experimentProgress'
+      || m.type === 'experimentCancelled' || m.type === 'experimentError') {
+    S.hack?.onMessage(m);
+    return;
+  }
 }
 
 function applyStimulus(built) {
@@ -213,6 +239,19 @@ function setRunning(on) {
   S.pacer.setEnabled(on);
   $('#simDot').classList.toggle('live', on);
   $('#simLabel').textContent = on ? 'LIVE' : 'PAUSED';
+}
+
+/* A paired comparison runs three trials' worth of biological time inside the
+   worker. Letting the live loop keep ticking alongside it would halve the
+   experiment's throughput and keep moving the brain state underneath it, so
+   the live loop is stopped for the duration -- through createSimPacer's own
+   setEnabled(), i.e. the existing `cmd:'run'` protocol, with no new worker
+   command and no change to sim-pacer.js. */
+function setExperimentMode(on) {
+  S.experimentRunning = on;
+  S.pacer.setEnabled(!on);
+  $('#simDot').classList.toggle('live', !on);
+  $('#simLabel').textContent = on ? 'EXPERIMENT' : 'LIVE';
 }
 
 /* The neurotransmitter legend is the honest one: in web/js/gl.js a point's
@@ -299,6 +338,7 @@ function bindViewControls() {
   $('#btnResetWorld').addEventListener('click', () => {
     S.spikeAccum.fill(0); S.winCount.fill(0); S.hz.fill(0);
     S.view.act.fill(0); S.view.uploadAct();
+    S.hack?.clearAll();
     S.worker.postMessage({ cmd: 'reset' });
   });
   $('#cameraMode').addEventListener('change', e => S.world.setCameraMode(e.target.value));

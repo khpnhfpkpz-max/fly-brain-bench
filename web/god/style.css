@@ -102,9 +102,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 
 /* ---------------- layout ---------------- */
 main{
-  display:grid; grid-template-columns:310px minmax(0,1fr) 348px; grid-template-rows:minmax(0,1fr) auto auto;
-  min-height:0; gap:12px; padding:12px;
+  display:grid; grid-template-columns:310px minmax(0,1fr) 348px; grid-template-rows:minmax(560px,1fr) max-content max-content max-content;
+  min-height:0; gap:12px; padding:12px; overflow-y:auto; scrollbar-width:thin;
 }
+main::-webkit-scrollbar{width:9px}
+main::-webkit-scrollbar-thumb{background:rgba(94,177,207,.2); border-radius:4px}
 main > *{min-width:0; min-height:0}
 .rail{display:flex; flex-direction:column; gap:12px; overflow-y:auto; scrollbar-width:thin}
 .rail::-webkit-scrollbar{width:7px}
@@ -310,7 +312,7 @@ main > *{min-width:0; min-height:0}
 .pipe-arrow{display:flex; align-items:center; color:var(--ink3); font-size:15px; opacity:.6}
 
 /* ---------------- neural inspector ---------------- */
-.inspector{grid-column:1 / -1; padding-bottom:16px}
+.inspector{grid-column:1 / -1; padding-bottom:16px; position:relative; z-index:3}
 .ins-layout{display:grid; grid-template-columns:280px 1fr; gap:18px; padding:0 16px}
 .ins-search-wrap{position:relative}
 .ins-search{
@@ -374,3 +376,139 @@ main > *{min-width:0; min-height:0}
   .pipe-node{min-width:140px}
   .ins-layout{grid-template-columns:1fr}
 }
+
+/* ---------------- Phase 4: NEURAL HACKING ----------------
+   The banner is deliberately positioned rather than placed in the body grid:
+   body is `grid-template-rows:auto 1fr` (header, main), and adding a third
+   flow child would re-slot main into an implicit auto row and change the
+   Phase 1-3 layout. As an overlay it costs the existing layout nothing. */
+.iv-banner{
+  position:fixed; top:60px; left:50%; transform:translateX(-50%) translateY(-8px);
+  z-index:30; display:none; align-items:center; gap:10px;
+  padding:7px 10px 7px 13px; border-radius:var(--rs);
+  border:1px solid rgba(232,101,75,.5); background:rgba(40,14,10,.94);
+  box-shadow:0 10px 30px rgba(0,0,0,.5), 0 0 22px rgba(232,101,75,.22);
+  font-size:12px; letter-spacing:.06em;
+  opacity:0; transition:opacity .2s ease, transform .2s ease;
+}
+.iv-banner.on{display:flex; opacity:1; transform:translateX(-50%) translateY(0)}
+.iv-banner-mark{color:var(--amber); font-size:13px}
+.iv-banner b{font-family:var(--fd); letter-spacing:.14em; font-size:11.5px; color:#ffd9cf}
+.iv-banner-count, .iv-banner .mono{color:var(--ink2); font-size:11px}
+.iv-banner-btn{
+  padding:4px 10px; border-radius:5px; font-size:11px; color:#ffd9cf;
+  border:1px solid rgba(232,101,75,.45); background:rgba(232,101,75,.12); transition:.15s;
+}
+.iv-banner-btn:hover{background:rgba(232,101,75,.24); border-color:var(--red)}
+
+/* -- inspector: the intervene block -- */
+.ins-intervene:empty{display:none}
+.ins-intervene{
+  margin-top:13px; padding:11px 12px; border-radius:var(--rs);
+  border:1px solid rgba(232,101,75,.2); background:rgba(232,101,75,.04);
+}
+.iv-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px}
+.iv-head h4{
+  font-family:var(--fm); font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--amber); margin:0; font-weight:500;
+}
+.iv-state{font-size:10.5px; letter-spacing:.08em}
+.iv-state.on{color:var(--red)}
+.iv-btns{display:flex; gap:6px; margin:9px 0 0; flex-wrap:wrap}
+.iv-btn{
+  padding:6px 11px; border-radius:5px; font-size:11.5px; color:var(--ink2);
+  border:1px solid var(--line2); background:rgba(95,208,255,.05); transition:.15s;
+}
+.iv-btn:hover:not(:disabled){color:var(--ink); border-color:var(--cyan)}
+.iv-btn:disabled{opacity:.4}
+.iv-btn.stim.on{color:#0a1a10; background:var(--green); border-color:var(--green)}
+.iv-btn.suppress.on{color:#04121a; background:var(--cyan); border-color:var(--cyan)}
+.iv-btn.off.on{color:#1a0b06; background:var(--red); border-color:var(--red)}
+.iv-btn.reset{margin-left:auto}
+.iv-hz{display:flex; align-items:center; gap:9px; margin-top:10px; font-size:11px; color:var(--ink2)}
+.iv-hz input{flex:1; accent-color:var(--amber); min-width:0}
+.iv-hz b{color:var(--ink); font-size:11px; min-width:52px; text-align:right}
+.iv-hz.off{opacity:.32; pointer-events:none}
+.iv-note{font-size:10.5px; line-height:1.5; margin:9px 0 0}
+
+/* -- the Neural hacking panel -- */
+.hacking{grid-column:1 / -1; padding-bottom:16px}
+.hack-layout{display:grid; grid-template-columns:300px minmax(0,1fr); gap:18px; padding:13px 15px 0}
+.iv-sub{
+  font-family:var(--fm); font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink2); margin:0 0 9px; font-weight:500; display:flex; gap:9px; align-items:baseline;
+}
+.iv-sub .dim{letter-spacing:0; text-transform:none; font-family:var(--fb); font-size:10.5px}
+.iv-list{display:flex; flex-direction:column; gap:6px; font-size:11.5px}
+.iv-list p{margin:0; font-size:11px; line-height:1.55}
+.iv-item{display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:5px; background:rgba(95,208,255,.05); border:1px solid var(--line)}
+.iv-item-name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.iv-tag{font-family:var(--fm); font-size:9px; letter-spacing:.1em; padding:2px 5px; border-radius:3px; color:#04121a}
+.iv-tag.stim{background:var(--green)}
+.iv-tag.suppress{background:var(--cyan)}
+.iv-tag.off{background:var(--red)}
+.iv-x{color:var(--ink3); font-size:15px; line-height:1; padding:0 2px}
+.iv-x:hover{color:var(--red)}
+
+.iv-run{margin-top:15px; border-top:1px solid var(--line); padding-top:13px}
+.iv-trial{display:flex; align-items:center; justify-content:space-between; gap:9px; font-size:11.5px; color:var(--ink2)}
+.iv-trial select{
+  padding:5px 8px; border-radius:5px; font-size:11.5px; color:var(--ink);
+  border:1px solid var(--line2); background:rgba(95,208,255,.06);
+}
+.iv-estimate{font-size:10.5px; line-height:1.5; margin:8px 0 11px}
+.iv-run-btns{display:flex; flex-direction:column; gap:7px}
+.btn.ghost{background:none}
+.iv-progress{margin-top:11px; display:flex; flex-direction:column; gap:6px}
+.iv-progress .track{height:3px}
+#ivProgressBar{height:100%; width:0; background:linear-gradient(90deg,var(--cyan-deep),var(--cyan)); transition:width .12s linear}
+#ivProgressLabel{font-size:10.5px}
+
+.iv-results:empty{display:none}
+.iv-results:not(:empty) + .iv-placeholder{display:none}
+.iv-placeholder{font-size:11px; line-height:1.6; margin:0; max-width:62ch}
+.iv-run-desc{font-family:var(--fm); font-size:10.5px; color:var(--ink3); margin:0 0 11px}
+.iv-table{width:100%; border-collapse:collapse; font-size:12px}
+.iv-table th, .iv-table td{text-align:left; padding:8px 10px; border-bottom:1px solid rgba(94,177,207,.09); vertical-align:baseline}
+.iv-table thead th{
+  font-family:var(--fm); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink3); font-weight:500; padding-bottom:6px;
+}
+.iv-table tbody th{
+  font-family:var(--fm); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink2); font-weight:500; width:120px;
+}
+.iv-table b{font-weight:600}
+.iv-delta{font-family:var(--fm); font-size:10.5px; padding:1px 5px; border-radius:3px; margin-left:5px}
+.iv-delta.up{color:var(--green); background:rgba(79,214,122,.11)}
+.iv-delta.down{color:var(--red); background:rgba(232,101,75,.11)}
+.iv-nd{color:var(--ink3); font-size:11px; font-style:italic}
+.iv-react{margin-top:2px}
+.iv-react tbody th{text-transform:none; font-family:var(--fm); letter-spacing:.04em; color:var(--cyan)}
+
+.iv-caveats{
+  margin:16px 15px 0; padding:12px 14px 12px 30px; list-style:disc;
+  border:1px solid var(--line); border-radius:var(--rs); background:rgba(95,208,255,.03);
+  font-size:10.5px; line-height:1.65; color:var(--ink3);
+}
+.iv-caveats li + li{margin-top:7px}
+.iv-caveats b{color:var(--ink2); font-weight:600}
+
+@media (max-width:1180px){
+  .hack-layout{grid-template-columns:minmax(0,1fr)}
+}
+.iv-acts tbody th, .iv-chan tbody th{text-transform:none; letter-spacing:.02em; color:var(--ink2)}
+.iv-chan tbody th{font-family:var(--fm); color:var(--cyan)}
+.iv-acts tr.on th{color:var(--ink)}
+.iv-acts tr.on td{color:var(--ink)}
+.iv-acts td, .iv-chan td{width:38%}
+.iv-table th.iv-sel{text-transform:none; letter-spacing:.02em; color:var(--amber)}
+
+/* The three full-width rows below the stage are `max-content`, not `auto`:
+   `main` now has more content than viewport, and an `auto` track is shrunk
+   when a definite-height grid overflows -- which left the inspector and the
+   Phase 4 panel drawn on top of each other. `max-content` tracks keep their
+   size and `main` scrolls instead. */
+/* `.iv-progress` sets display:flex, which would otherwise win over the
+   [hidden] attribute and leave a finished run's progress bar on screen. */
+.iv-progress[hidden], .btn[hidden]{display:none}

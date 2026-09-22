@@ -36,8 +36,8 @@
   <nav class="tabs">
     <button class="tab on" type="button">World</button>
     <button class="tab on" type="button">Neural</button>
-    <button class="tab off" type="button" disabled title="Not implemented in Phase 1">Experiment</button>
-    <button class="tab off" type="button" disabled title="Not implemented in Phase 1">Evolution</button>
+    <button class="tab on" type="button">Experiment</button>
+    <button class="tab off" type="button" disabled title="Not implemented yet">Evolution</button>
   </nav>
 
   <div class="status">
@@ -58,6 +58,13 @@
     </div>
   </div>
 </header>
+
+<div id="ivBanner" class="iv-banner" role="status">
+  <span class="iv-banner-mark" aria-hidden="true">&#9888;</span>
+  <b>NEURAL INTERVENTION ACTIVE</b>
+  <span id="ivBannerCount" class="mono"></span>
+  <button id="ivBannerReset" class="iv-banner-btn" type="button">Reset all</button>
+</div>
 
 <main>
   <section class="rail left">
@@ -191,11 +198,50 @@
             <i class="dim">Spike history &middot; last 10s</i>
             <canvas id="insHistory" class="ins-history"></canvas>
           </div>
+          <div id="insIntervene" class="ins-intervene"></div>
           <div id="insConnections" class="ins-connections"></div>
           <div id="insInvolvement" class="ins-involvement"></div>
         </div>
       </div>
     </div>
+  </section>
+
+  <section class="panel hacking">
+    <h2 class="panel-title">Neural hacking <span class="panel-tag mono">Normal vs Intervention</span></h2>
+
+    <div class="hack-layout">
+      <div class="hack-left">
+        <h4 class="iv-sub">Active interventions</h4>
+        <div id="ivList" class="iv-list"></div>
+
+        <div class="iv-run">
+          <label class="iv-trial">Trial length
+            <select id="ivTrial" class="mono" aria-label="Trial length"></select>
+          </label>
+          <p id="ivEstimate" class="iv-estimate mono dim"></p>
+          <div class="iv-run-btns">
+            <button id="ivRun" class="btn wide" type="button" disabled>Run comparison</button>
+            <button id="ivCancel" class="btn wide ghost" type="button" hidden>Cancel</button>
+          </div>
+          <div id="ivProgressWrap" class="iv-progress" hidden>
+            <div class="track"><div id="ivProgressBar"></div></div>
+            <span id="ivProgressLabel" class="mono dim"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hack-right">
+        <div id="ivResults" class="iv-results"></div>
+        <p class="dim iv-placeholder">Choose an intervention in the Neural inspector, then run a comparison. Normal and Intervention are forked from one identical brain state and given the same random seed, so the only difference between them is the intervention.</p>
+      </div>
+    </div>
+
+    <ul class="iv-caveats">
+      <li><b>Suppress is an idealised inhibition.</b> This engine has no inhibitory reversal potential, so a suppression barrage drives the membrane further below rest than a real GABAergic input could. Read it as &ldquo;strong inhibitory drive&rdquo;, not as a measured physiological current.</li>
+      <li><b>Disable does not delete anything from the connectome.</b> The FlyWire wiring is immutable here &mdash; every synapse this cell has is still present. Disable holds the cell in the refractory state the engine already implements, so it cannot spike: a simulated silencing, not an edit to the graph.</li>
+      <li><b>Reaction time is only defined for a channel that was silent before onset.</b> If a channel was already firing in the baseline window, or never fires inside the trial window, no number is shown &mdash; the reason is shown instead. No value is ever estimated or written as &ldquo;more than&rdquo; the window.</li>
+      <li><b>One trial per comparison.</b> Normal and Intervention share one seed, so the background noise is identical on both sides and the difference is the intervention rather than luck &mdash; but this is still a single run. No statistical significance, p-value or confidence interval is claimed.</li>
+    </ul>
   </section>
 </main>
 
