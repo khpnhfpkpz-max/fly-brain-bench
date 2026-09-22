@@ -1,14 +1,26 @@
-/* NEURAL GOD — minimal position/heading minimap. Pure canvas 2D, no deps. */
+/* NEURAL GOD — minimal position/heading minimap. Pure canvas 2D, no deps.
+
+   Reassigning canvas.width/height reallocates and clears the backing store
+   even when the new value is the same as the old one -- so that only happens
+   when the CSS size has actually changed, not on every call. Call frequency
+   itself is the caller's concern (app.js throttles it well below the render
+   loop's own rate; a position dot has no reason to update at display refresh
+   rate). */
 export class Radar {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this._w = 0; this._h = 0;
   }
   draw(x, z, headingRad, range = 6) {
     const { ctx, canvas } = this;
     const dpr = Math.min(devicePixelRatio || 1, 2);
-    const w = canvas.width = Math.max(1, canvas.clientWidth * dpr);
-    const h = canvas.height = Math.max(1, canvas.clientHeight * dpr);
+    const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+    const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    if (w !== this._w || h !== this._h) {
+      this._w = canvas.width = w;
+      this._h = canvas.height = h;
+    }
     ctx.clearRect(0, 0, w, h);
     const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 3 * dpr;
     ctx.strokeStyle = 'rgba(102,197,255,0.30)';

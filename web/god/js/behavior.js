@@ -47,17 +47,41 @@ export function computeBehaviorPanel(dec, hz) {
   return { label: learned ? 'Confidence' : 'Activation', values, current, score };
 }
 
+/* Element lookups (querySelector) and any write whose value has not actually
+   changed are both real, avoidable DOM cost at a 5 Hz readout rate -- and
+   most of these nine rows sit at 0.00 for long stretches. Cache the former
+   per container, skip the latter by remembering what was last written. */
+const panelCache = new WeakMap();
+
+function writeText(el, text, prev, key) {
+  if (!el || prev[key] === text) return;
+  el.textContent = text;
+  prev[key] = text;
+}
+
 export function renderBehaviorPanel(container, panel) {
-  container.querySelector('.beh-mode').textContent = panel.label;
-  container.querySelector('.beh-current').textContent = BEHAVIOUR_LABEL[panel.current];
-  container.querySelector('.beh-score').textContent = `${panel.label}: ${panel.score.toFixed(2)}`;
+  let c = panelCache.get(container);
+  if (!c) {
+    c = { mode: container.querySelector('.beh-mode'), current: container.querySelector('.beh-current'),
+          score: container.querySelector('.beh-score'), rows: {}, prev: {} };
+    for (const b of BEHAVIOURS) {
+      const row = container.querySelector(`.beh-row[data-b="${b}"]`);
+      if (row) c.rows[b] = { row, bar: row.querySelector('.beh-bar > i'), num: row.querySelector('.beh-num') };
+    }
+    panelCache.set(container, c);
+  }
+  writeText(c.mode, panel.label, c.prev, 'mode');
+  writeText(c.current, BEHAVIOUR_LABEL[panel.current], c.prev, 'current');
+  writeText(c.score, `${panel.label}: ${panel.score.toFixed(2)}`, c.prev, 'score');
   for (const b of BEHAVIOURS) {
-    const row = container.querySelector(`.beh-row[data-b="${b}"]`);
-    if (!row) continue;
+    const r = c.rows[b];
+    if (!r) continue;
     const v = panel.values[b] || 0;
-    row.querySelector('.beh-bar > i').style.width = `${Math.max(0, Math.min(100, v * 100)).toFixed(0)}%`;
-    row.querySelector('.beh-num').textContent = v.toFixed(2);
-    row.classList.toggle('on', b === panel.current);
+    const pct = `${Math.max(0, Math.min(100, v * 100)).toFixed(0)}%`;
+    if (c.prev[`w${b}`] !== pct) { r.bar.style.width = pct; c.prev[`w${b}`] = pct; }
+    writeText(r.num, v.toFixed(2), c.prev, `n${b}`);
+    const on = b === panel.current;
+    if (c.prev[`o${b}`] !== on) { r.row.classList.toggle('on', on); c.prev[`o${b}`] = on; }
   }
 }
 

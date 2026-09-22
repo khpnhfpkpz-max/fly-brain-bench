@@ -13,9 +13,11 @@ import { Decoder } from '../../js/decoder.js';
 import { PARAMS } from '../../js/lif-core.js';
 import { WorldView } from './world-view.js';
 import { initWorldControl } from './world-control.js';
+import { SCENARIOS } from './scenarios.js';
 import { computeStageCounts } from './pipeline.js';
 import { computeBehaviorPanel, buildBehaviorRows, renderBehaviorPanel, BEHAVIOUR_LABEL } from './behavior.js';
 import { Radar } from './radar.js';
+import { createSimPacer } from './sim-pacer.js';
 
 const $ = s => document.querySelector(s);
 const NT_COLOR = {
@@ -25,17 +27,35 @@ const NT_COLOR = {
   unknown: [0.45, 0.52, 0.55],
 };
 const RESPOND_HZ = 1;             // "responding" cutoff, same as the main bench's response list
-const READOUT_MS = 200;           // same cadence as web/js/app.js's readout()
+const READOUT_MS = 200;           // same cadence as web/js/app.js's readout() -- also the decoder's own update rate
 const QUALITY_KEY = 'neural-god-quality';
+
+/* The 3D world still redraws every rAF tick (smooth camera and gait), but
+   these two are visual bookkeeping that gains nothing from running faster
+   than this: the brain point cloud's own activity input only changes at
+   READOUT_MS anyway, and the radar is a slowly-moving dot. Decoupling them
+   from display refresh rate (which can be 60, 120, 144 Hz...) is most of
+   where the "spiking rate" of GPU/CPU work independent of simulation speed
+   was coming from. */
+const BRAIN_HZ = 30;
+const BRAIN_DT = 1 / BRAIN_HZ;
+const RADAR_HZ = 10;
+const RADAR_DT = 1 / RADAR_HZ;
+
+/* A neutral resting drive, so the fly has something to animate toward before
+   the first readout() has run. Same shape decoder.js's rules()/learned()
+   already return -- not a new behaviour, just its all-zero rest state. */
+const NEUTRAL_DRIVE = { walk: 0, turn: 0, stop: 0, backward: 0, escape: 0, proboscis: 0, wing: 0, groom: 0 };
 
 const S = {
   meta: null, dicts: null, labels: null,
-  view: null, world: null, dec: null, radar: null,
+  view: null, world: null, dec: null, radar: null, pacer: null,
   worker: null, ready: false,
   hz: null, spikeAccum: null, winCount: null,
   t: 0, nActive: 0, totalSpikes: 0,
   activeStim: { idx: new Int32Array(0), rates: new Float32Array(0), activeCount: 0 },
-  lastReadout: 0,
+  drive: NEUTRAL_DRIVE,
+  lastReadout: 0, brainAcc: 0, radarAcc: 0,
 };
 
 const yieldFrame = () => new Promise(r => setTimeout(r, 0));
@@ -96,11 +116,17 @@ async function boot() {
     S.view.hideMissingPositions(provenance.missing);
     S.view.autoRotate = true;
     S.view.setNTColors(meta.dicts.top_nt.map(n => NT_COLOR[n] || NT_COLOR.unknown));
+    /* This panel is 346x186 CSS px at its widest; gl.js defaults to a device
+       pixel ratio cap of 2, which is real supersampling this small a canvas
+       never needed. 1.5 is a flat, quality-independent cut (-44% pixels);
+       Low goes further, in applyBrainQuality() below. */
+    S.view.pixelRatioLimit = 1.5;
     buildNTLegend(meta.dicts.top_nt);
 
     const quality = readQuality();
     S.world = new WorldView($('#flyWell'), { labelContainer: $('#sceneLabels'), quality });
     S.radar = new Radar($('#radar'));
+    applyBrainQuality(quality);
     markQuality(quality);
 
     S.dec = new Decoder(channels.channels, channels.features);
@@ -116,17 +142,19 @@ async function boot() {
       { cmd: 'init', N, indptr: conn.indptr, indices: conn.indices, weights: conn.weights },
       [conn.indptr.buffer, conn.indices.buffer, conn.weights.buffer],
     );
+    S.pacer = createSimPacer(S.worker, { runMs: 250, pauseMs: 250 });
 
-    const wc = initWorldControl({
+    S.wc = initWorldControl({
       container: $('#worldControls'),
       dicts: S.dicts, labels: S.labels,
       defaultHz: PARAMS.RPOI,
       onStimulusChange: applyStimulus,
       onStateChange: applyWorldVisuals,
     });
-    applyWorldVisuals(wc.state);
-    applyStimulus(wc.initialStimulus);
+    applyWorldVisuals(S.wc.state);
+    applyStimulus(S.wc.initialStimulus);
 
+    buildScenarioPicker();
     bindViewControls();
     setRunning(true);
     requestAnimationFrame(loop);
@@ -161,7 +189,7 @@ function applyWorldVisuals(state) {
 }
 
 function setRunning(on) {
-  S.worker.postMessage({ cmd: 'run', on });
+  S.pacer.setEnabled(on);
   $('#simDot').classList.toggle('live', on);
   $('#simLabel').textContent = on ? 'LIVE' : 'PAUSED';
 }
@@ -177,9 +205,35 @@ function buildNTLegend(names) {
   }).join('');
 }
 
+function buildScenarioPicker() {
+  const sel = $('#scenarioSelect');
+  sel.innerHTML = SCENARIOS.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  const showDesc = id => {
+    $('#scenarioDesc').textContent = SCENARIOS.find(s => s.id === id)?.description || '';
+  };
+  sel.addEventListener('change', () => {
+    const scenario = SCENARIOS.find(s => s.id === sel.value);
+    if (!scenario) return;
+    S.wc.applyValues(scenario.values);
+    showDesc(scenario.id);
+  });
+  showDesc(sel.value);
+}
+
 function markQuality(q) {
   $('#qHigh').classList.toggle('on', q === 'high');
   $('#qLow').classList.toggle('on', q === 'low');
+}
+
+/* The Graphics setting previously only touched WorldView -- the brain point
+   cloud (web/js/gl.js's BrainView) kept rendering at full resolution with
+   full bloom regardless. Low now actually means less work here too: no
+   post-processing at all (gl.js's own draw() skips the whole bloom chain
+   when this.bloom < 0.01) and pixel-ratio 1 instead of 1.5. Neither touches
+   gl.js -- both are public properties it already exposed. */
+function applyBrainQuality(q) {
+  if (q === 'high') { S.view.pixelRatioLimit = 1.5; S.view.bloom = 0.85; }
+  else { S.view.pixelRatioLimit = 1; S.view.bloom = 0; }
 }
 
 function bindViewControls() {
@@ -202,6 +256,7 @@ function bindViewControls() {
   for (const [id, q] of [['#qHigh', 'high'], ['#qLow', 'low']]) {
     $(id).addEventListener('click', () => {
       S.world.setQuality(q);
+      applyBrainQuality(q);
       storeQuality(q);
       markQuality(q);
     });
@@ -215,26 +270,43 @@ function loop(now) {
   fpsAcc += dt; fpsN++;
 
   if (S.ready) {
-    const act = S.view.act, sp = S.spikeAccum;
-    const decay = Math.pow(0.02, dt);
-    for (let i = 0; i < act.length; i++) {
-      const a = act[i] * decay;
-      act[i] = sp[i] > a ? sp[i] : a;
-      sp[i] = 0;
-    }
-    S.view.uploadAct();
-    S.view.draw(dt);
-
-    const drive = S.dec.decode(S.hz);
-    S.world.update(drive, dt);
+    /* The fly's body still integrates every rAF tick -- gait, wings and
+       camera stay smooth at whatever the display's own refresh rate is.
+       `S.drive` itself only changes at READOUT_MS (see readout() below):
+       recomputing decode() here as well was recomputing the same answer
+       up to a dozen times between the readouts that actually change it. */
+    S.world.update(S.drive, dt);
     S.world.draw(dt);
-    S.radar.draw(S.world.rig.s.x, S.world.rig.s.z, S.world.rig.s.heading);
+
+    S.brainAcc += dt;
+    if (S.brainAcc >= BRAIN_DT) {
+      const bdt = S.brainAcc; S.brainAcc = 0;
+      const act = S.view.act, sp = S.spikeAccum;
+      const decay = Math.pow(0.02, bdt);
+      for (let i = 0; i < act.length; i++) {
+        const a = act[i] * decay;
+        act[i] = sp[i] > a ? sp[i] : a;
+        sp[i] = 0;
+      }
+      S.view.uploadAct();
+      S.view.draw(bdt);
+    }
+
+    S.radarAcc += dt;
+    if (S.radarAcc >= RADAR_DT) {
+      S.radarAcc = 0;
+      S.radar.draw(S.world.rig.s.x, S.world.rig.s.z, S.world.rig.s.heading);
+    }
 
     if (now - S.lastReadout > READOUT_MS) { readout(now); S.lastReadout = now; }
   }
 
-  if (fpsAcc > 0.25) { $('#statFps').textContent = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
+  if (fpsAcc > 0.25) { setText($('#statFps'), String(Math.round(fpsN / fpsAcc))); fpsAcc = 0; fpsN = 0; }
   requestAnimationFrame(loop);
+}
+
+function setText(el, text) {
+  if (el.textContent !== text) el.textContent = text;
 }
 
 function readout(now) {
@@ -247,25 +319,29 @@ function readout(now) {
     if (hz[i] >= RESPOND_HZ) { sumActiveHz += hz[i]; activeN++; }
   }
 
-  $('#statActive').textContent = S.nActive.toLocaleString();
-  $('#statHz').textContent = activeN ? (sumActiveHz / activeN).toFixed(1) : '0.0';
+  setText($('#statActive'), S.nActive.toLocaleString());
+  setText($('#statHz'), activeN ? (sumActiveHz / activeN).toFixed(1) : '0.0');
 
   const stage = computeStageCounts({
     dicts: S.dicts, labels: S.labels, hz, activeStimCount: S.activeStim.activeCount, threshold: RESPOND_HZ,
   });
-  $('#pipeSensoryInput').textContent = stage.sensoryInput.toLocaleString();
-  $('#pipeSensory').textContent = stage.sensoryNeurons.toLocaleString();
-  $('#pipeInter').textContent = stage.interneurons.toLocaleString();
-  $('#pipeDescending').textContent = stage.descendingNeurons.toLocaleString();
-  $('#pipeMotor').textContent = stage.motorOutput.toLocaleString();
+  setText($('#pipeSensoryInput'), stage.sensoryInput.toLocaleString());
+  setText($('#pipeSensory'), stage.sensoryNeurons.toLocaleString());
+  setText($('#pipeInter'), stage.interneurons.toLocaleString());
+  setText($('#pipeDescending'), stage.descendingNeurons.toLocaleString());
+  setText($('#pipeMotor'), stage.motorOutput.toLocaleString());
 
+  /* The single decode() for this whole 200ms window -- FlyRig.update() in
+     loop() above keeps reading this same object every frame until the next
+     readout() replaces it. */
+  S.drive = S.dec.decode(hz);
   const panel = computeBehaviorPanel(S.dec, hz);
   renderBehaviorPanel($('#behaviorPanel'), panel);
-  $('#overlayBehaviour').textContent = BEHAVIOUR_LABEL[panel.current];
-  $('#overlayConfidence').textContent = panel.score.toFixed(2);
-  $('#overlayDirection').textContent = `${Math.round(((S.world.rig.s.heading * 180 / Math.PI) % 360 + 360) % 360)}°`;
-  $('#overlayPos').textContent = `X:${S.world.rig.s.x.toFixed(1)} Z:${S.world.rig.s.z.toFixed(1)}`;
-  $('#overlaySpeed').textContent = `${Math.abs(S.world.rig.s.speed).toFixed(2)} u/s`;
+  setText($('#overlayBehaviour'), BEHAVIOUR_LABEL[panel.current]);
+  setText($('#overlayConfidence'), panel.score.toFixed(2));
+  setText($('#overlayDirection'), `${Math.round(((S.world.rig.s.heading * 180 / Math.PI) % 360 + 360) % 360)}°`);
+  setText($('#overlayPos'), `X:${S.world.rig.s.x.toFixed(1)} Z:${S.world.rig.s.z.toFixed(1)}`);
+  setText($('#overlaySpeed'), `${Math.abs(S.world.rig.s.speed).toFixed(2)} u/s`);
 }
 
 window.neuralGod = S;          // same debugging convention as the bench's `window.bench`

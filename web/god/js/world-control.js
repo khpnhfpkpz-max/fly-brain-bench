@@ -18,12 +18,14 @@ import { PRESETS, resolvePreset } from '../../js/presets.js';
 
 export const WORLD_CONTROLS = [
   { id: 'light', label: 'Light', kind: 'slider', unit: '%', min: 0, max: 100, def: 70, presetId: null,
+    reason: 'No matching sensory population in this connectome',
     note: 'No ambient-light sensory channel exists in this model. R7/R8 colour photoreceptors are a separate, narrow pathway (see the science guide) -- not a generic brightness input.' },
   { id: 'temperature', label: 'Temperature', kind: 'slider', unit: '°C', min: 0, max: 50, def: 24, presetId: 'heat',
     note: 'Drives the thermosensory population of the arista.' },
   { id: 'humidity', label: 'Humidity', kind: 'slider', unit: '%', min: 0, max: 100, def: 50, presetId: 'humid',
     note: 'Drives the hygrosensory population.' },
   { id: 'wind', label: 'Wind', kind: 'slider', unit: '%', min: 0, max: 100, def: 10, presetId: null,
+    reason: 'No matching sensory population in this connectome',
     note: 'No mechanosensory wind/airflow channel exists in this model.' },
   { id: 'food', label: 'Food', kind: 'toggle', presetId: 'sugar',
     note: 'Drives labellar sugar-taste bristles (LB3) -- direct proboscis contact, the model’s published benchmark stimulus.' },
@@ -34,10 +36,39 @@ export const WORLD_CONTROLS = [
   { id: 'visual', label: 'Visual stimulus (Looming)', kind: 'toggle', presetId: 'loom',
     note: 'Drives looming detectors (LPLC2). Watch for DNp01, the giant fibre, downstream.' },
   { id: 'predator', label: 'Predator', kind: 'toggle', presetId: null,
+    reason: 'No predator-shape-specific sensory channel in this connectome',
     note: 'This model has no predator-shape-specific sensory channel -- only the generic looming signal above. This switch shows/hides the 3D prop only.' },
   { id: 'touch', label: 'Touch stimulus', kind: 'toggle', presetId: 'touch',
     note: 'Drives bristle mechanosensory neurons around the eye (BM_InOm).' },
 ];
+
+/* Measured basis for the slider curve (see tools/measure-world-control-response.mjs,
+   headless, seeded, averaged over 4 runs against the real Engine + Decoder):
+
+   preset   neurons   ignition point (whole-brain response goes from ~0 to its
+                       steady plateau of ~7,800-8,000 responding cells, ~5.5 Hz
+                       mean descending rate)
+   heat        29      ~2-3 Hz
+   humid       74      ~5-7.5 Hz
+   food       122      ~1-1.5 Hz
+
+   Past that point, raising the drive further barely changes the plateau --
+   e.g. heat's responding-cell count is 7,804 at 3 Hz and 7,911 at 150 Hz, a
+   1.4% change over a 50x increase in drive. A linear 0-100% -> 0-RPOI mapping
+   therefore spends the first 1-5% of the slider doing all the work and the
+   remaining 95%+ doing almost nothing -- "barely move it and it's already
+   maxed out" is not a UI bug, it is what these three small populations
+   (29-122 cells apiece) actually do to this recurrent network.
+
+   INTENSITY_GAMMA reshapes the slider, not the biology: hz = RPOI * frac^4
+   spreads that same real ignition point out to roughly the 30-50% mark of the
+   slider's travel for all three controls (worked out from the measured
+   thresholds above), so dragging through the middle of the slider is where
+   the brain visibly switches on, instead of the first pixel of movement. The
+   ceiling is still exactly RPOI at 100% -- the same rate every toggle in this
+   app uses for its "on" state -- and 0% is still exactly 0 Hz. Only the shape
+   of the ramp between those two measured, unchanged endpoints is different. */
+const INTENSITY_GAMMA = 4;
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const findPreset = id => PRESETS.find(p => p.id === id) || null;
@@ -69,7 +100,7 @@ export function initWorldControl({ container, dicts, labels, defaultHz, onStimul
       const on = c.kind === 'toggle' ? v : v > 0;
       if (!on) continue;
       const frac = c.kind === 'toggle' ? 1 : Math.min(1, v / c.max);
-      const hz = defaultHz * frac;
+      const hz = defaultHz * Math.pow(frac, INTENSITY_GAMMA);
       for (const i of ids) { idxList.push(i); rateList.push(hz); }
       activeCount += ids.length;
     }
@@ -82,13 +113,38 @@ export function initWorldControl({ container, dicts, labels, defaultHz, onStimul
     debounceT = setTimeout(() => onStimulusChange(buildStimulus()), 120);
   }
 
-  renderUI(container, state, () => { onStateChange(state); scheduleStimulus(); });
+  const fields = renderUI(container, state, () => { onStateChange(state); scheduleStimulus(); });
 
-  return { state, initialStimulus: buildStimulus() };
+  /* Programmatic control, for Scenario presets (js/scenarios.js). Updates the
+     same `state` object and the same rendered inputs a manual drag/click
+     would, then runs through the identical onStateChange + stimulus path --
+     a scenario is not a separate code path from a person's own hand on the
+     controls, just a batch of the same writes. */
+  function applyValues(values) {
+    for (const c of WORLD_CONTROLS) {
+      if (!(c.id in values)) continue;
+      const v = values[c.id];
+      state[c.id] = v;
+      const f = fields[c.id];
+      if (!f) continue;
+      if (c.kind === 'toggle') {
+        f.el.textContent = v ? 'ON' : 'OFF';
+        f.el.classList.toggle('on', !!v);
+      } else {
+        f.el.value = String(v);
+        f.out.textContent = `${v}${c.unit}`;
+      }
+    }
+    onStateChange(state);
+    scheduleStimulus();
+  }
+
+  return { state, initialStimulus: buildStimulus(), applyValues };
 }
 
 function renderUI(container, state, onInput) {
   container.innerHTML = '';
+  const fields = {};
   for (const c of WORLD_CONTROLS) {
     const row = document.createElement('div');
     row.className = 'wc-row' + (c.presetId ? '' : ' wc-off');
@@ -97,7 +153,7 @@ function renderUI(container, state, onInput) {
     const head = document.createElement('div');
     head.className = 'wc-head';
     head.innerHTML = `<span class="wc-label">${esc(c.label)}</span>` +
-      (c.presetId ? '' : '<span class="wc-badge">Not connected</span>');
+      (c.presetId ? '' : `<span class="wc-badge" title="${esc(c.reason || 'Not connected')}">Not connected</span>`);
     row.appendChild(head);
 
     if (c.kind === 'toggle') {
@@ -112,6 +168,7 @@ function renderUI(container, state, onInput) {
         onInput();
       });
       row.appendChild(btn);
+      fields[c.id] = { el: btn };
     } else {
       const wrap = document.createElement('div');
       wrap.className = 'wc-slider';
@@ -128,6 +185,7 @@ function renderUI(container, state, onInput) {
       });
       wrap.append(input, out);
       row.appendChild(wrap);
+      fields[c.id] = { el: input, out };
     }
 
     const note = document.createElement('p');
@@ -137,4 +195,5 @@ function renderUI(container, state, onInput) {
 
     container.appendChild(row);
   }
+  return fields;
 }

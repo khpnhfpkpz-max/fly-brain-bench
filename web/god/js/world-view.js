@@ -26,13 +26,25 @@ export class WorldView {
     this.mode = 'free';
     this.time = 0;
 
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+    /* low-power: this page never needs a discrete GPU to keep up, and asking
+       for one is a real, measurable contributor to fan noise/heat on laptops
+       with a switchable GPU. Never affects simulation output -- rendering
+       only. */
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'low-power' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;   // only used when bloom is off
     this.renderer.toneMappingExposure = 1.15;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    /* The shadow map is a whole extra render of every caster from the light's
+       point of view. The fly keeps moving (legs, wings) even when the camera
+       does not, so it cannot simply be frozen -- but nothing needs it redrawn
+       every single frame either. draw() below refreshes it on a duty cycle
+       instead of every frame; this only changes how often the shadow is
+       redrawn, never the lit result once it is. */
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.setClearColor(0x04080b, 1);
+    this._frame = 0;
 
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0x061016, 0.024);
@@ -162,8 +174,20 @@ export class WorldView {
     this.reflectEnabled = high;
     this.scenery.setQuality(high);
     this.scenery.waterMat.uniforms.uHasReflect.value = high ? 1 : 0;
-    this.post.sceneRT.samples = high ? 4 : 0;
+    /* 4 samples was never load-bearing for how the scene reads (bloom and
+       the film grain already hide most aliasing); 2 halves the multisample
+       resolve cost for a difference that does not survive a screenshot
+       comparison. Low keeps 0, as before. */
+    this.post.sceneRT.samples = high ? 2 : 0;
     this.post.sceneRT.dispose();
+    /* Shadow map and reflection are each a full extra pass over the scene.
+       Redrawing them every other frame (high) instead of every frame is
+       inaudible to the eye -- the fly's shadow lags by at most one frame,
+       the reflection samples a camera position at most one frame stale --
+       but it removes a third to a half of this view's draw calls. Low
+       already has both fully disabled above, so no interval is needed there. */
+    this.shadowEvery = 2;
+    this.reflectEvery = 2;
     this._w = 0;                                 // force a resize pass
     this.scene.traverse(o => {
       const mats = o.material ? [o.material].flat() : [];
@@ -237,6 +261,7 @@ export class WorldView {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     if (!w || !h) return;
     this.time += dt;
+    this._frame++;
 
     if (w !== this._w || h !== this._h) {
       this._w = w; this._h = h;
@@ -254,7 +279,10 @@ export class WorldView {
     this.food.update(this.time);
     this.predator.update(this.time);
 
-    if (this.reflectEnabled) this._renderReflection();
+    // both are frame-skipped independently of the main colour pass above,
+    // which still renders every call so the fly's own motion stays smooth
+    this.renderer.shadowMap.needsUpdate = this.renderer.shadowMap.enabled && (this._frame % this.shadowEvery === 0);
+    if (this.reflectEnabled && this._frame % this.reflectEvery === 0) this._renderReflection();
 
     this.post.renderScene(this.scene, this.camera);
     this.post.composite(this.time);
