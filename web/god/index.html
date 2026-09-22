@@ -107,7 +107,7 @@
     <div class="panel">
       <h2 class="panel-title">
         Neural activity
-        <select class="regions mono" disabled title="Region filtering ships in a later phase"><option>All regions</option></select>
+        <select id="regionsFilter" class="regions mono" aria-label="Brain region filter"><option value="-1">All regions</option></select>
       </h2>
       <canvas id="brainWell"></canvas>
       <div class="activity-stats">
@@ -164,6 +164,37 @@
       <span class="pipe-orb s5"></span>
       <h3>Motor Output</h3>
       <b id="pipeMotor" class="mono">0</b>
+    </div>
+  </section>
+
+  <section class="panel inspector">
+    <h2 class="panel-title">Neural inspector</h2>
+    <div class="ins-layout">
+      <div class="ins-search-wrap">
+        <input id="insSearch" class="ins-search" type="text" placeholder="Search neuron ID, root ID, cell type or region&hellip;" autocomplete="off">
+        <div id="insResults" class="ins-results"></div>
+      </div>
+
+      <div class="ins-main">
+        <p id="insEmpty" class="dim ins-empty-msg">Click a point in Neural Activity, or search above, to inspect a neuron.</p>
+        <div id="insBody" class="ins-body" style="display:none">
+          <div class="ins-head">
+            <h3 id="insTitle"></h3>
+            <span id="insRootLink" class="ins-root-link mono"></span>
+          </div>
+          <dl id="insMeta" class="ins-meta"></dl>
+          <div class="ins-live">
+            <div class="ins-stat"><i>Spike rate</i><b id="insRate" class="mono">0.0 Hz</b></div>
+            <div class="ins-stat"><i>Current activity</i><b id="insActivity" class="mono">0%</b></div>
+          </div>
+          <div class="ins-history-wrap">
+            <i class="dim">Spike history &middot; last 10s</i>
+            <canvas id="insHistory" class="ins-history"></canvas>
+          </div>
+          <div id="insConnections" class="ins-connections"></div>
+          <div id="insInvolvement" class="ins-involvement"></div>
+        </div>
+      </div>
     </div>
   </section>
 </main>

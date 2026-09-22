@@ -3,7 +3,7 @@
    The engine itself lives in one place so the browser and the headless trainer
    cannot drift apart; this file only handles messages and paces the posts. */
 
-import { Engine } from './lif-core.js';
+import { Engine, PARAMS } from './lif-core.js';
 
 let eng = null, running = false, speed = 8;
 let acc = null, accN = 0, lastPost = 0;
@@ -31,7 +31,77 @@ self.onmessage = (ev) => {
   if (m.cmd === 'speed') { speed = m.value; return; }
   if (m.cmd === 'eps') { eng.EPS = m.v; return; }
   if (m.cmd === 'reset') { eng.reset(); post(true); return; }
+  if (m.cmd === 'neighbors') { answerNeighbors(m); return; }
 };
+
+/* ---------------- cmd:'neighbors' (query-only; never touches `running`) ----------------
+
+   Added for the Neural Inspector's Connections panel. Reads the CSR the engine
+   already holds (indptr/indices/weights) and, on the first call only, builds
+   its transpose (who points *at* this neuron) since the forward CSR alone
+   cannot answer that. Nothing above this line changes: init/stim/run/speed/
+   eps/reset are untouched, this only adds a seventh, independent branch that
+   answers a question and returns -- it never starts, stops, or paces tick(). */
+let inPtr = null, inSrc = null, inW = null;
+
+function buildIncoming() {
+  if (inPtr) return;                    // built once, lazily, on first query
+  const N = eng.N, E = eng.indices.length;
+  const counts = new Int32Array(N + 1);
+  for (let e = 0; e < E; e++) counts[eng.indices[e] + 1]++;
+  for (let i = 0; i < N; i++) counts[i + 1] += counts[i];
+  const cursor = counts.slice(0, N);
+  inSrc = new Int32Array(E);
+  inW = new Float32Array(E);
+  for (let i = 0; i < N; i++) {
+    for (let e = eng.indptr[i]; e < eng.indptr[i + 1]; e++) {
+      const j = eng.indices[e];
+      const pos = cursor[j]++;
+      inSrc[pos] = i;
+      inW[pos] = eng.weights[e];
+    }
+  }
+  inPtr = counts;
+}
+
+/* Synapse counts are recovered exactly, not estimated: decodeConnectome
+   (web/js/data.js) packs each edge as round(synapses) * (WSYN or -WSYN), so
+   dividing back out and rounding recovers the original integer. */
+function synapsesOf(w) { return Math.round(Math.abs(w) / PARAMS.WSYN); }
+
+function topEdges(otherArr, wArr, start, end, max) {
+  const n = end - start;
+  const order = [];
+  for (let e = start; e < end; e++) order.push(e);
+  order.sort((a, b) => Math.abs(wArr[b]) - Math.abs(wArr[a]));
+  const out = [];
+  for (let k = 0; k < Math.min(max, n); k++) {
+    const e = order[k];
+    out.push({ j: otherArr[e], w: wArr[e], synapses: synapsesOf(wArr[e]) });
+  }
+  return out;
+}
+
+function synapseSum(wArr, start, end) {
+  let s = 0;
+  for (let e = start; e < end; e++) s += synapsesOf(wArr[e]);
+  return s;
+}
+
+function answerNeighbors(m) {
+  const i = m.i, max = m.max || 64;
+  buildIncoming();
+  const oS = eng.indptr[i], oE = eng.indptr[i + 1];
+  const iS = inPtr[i], iE = inPtr[i + 1];
+  self.postMessage({
+    type: 'neighbors', qid: m.qid, i,
+    outDegree: oE - oS, inDegree: iE - iS,
+    outSynapses: synapseSum(eng.weights, oS, oE),
+    inSynapses: synapseSum(inW, iS, iE),
+    out: topEdges(eng.indices, eng.weights, oS, oE, max),
+    in: topEdges(inSrc, inW, iS, iE, max),
+  });
+}
 
 function post(force) {
   const now = Date.now();

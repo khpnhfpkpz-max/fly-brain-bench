@@ -18,8 +18,11 @@ import { computeStageCounts } from './pipeline.js';
 import { computeBehaviorPanel, buildBehaviorRows, renderBehaviorPanel, BEHAVIOUR_LABEL } from './behavior.js';
 import { Radar } from './radar.js';
 import { createSimPacer } from './sim-pacer.js';
+import { createInspector } from './inspector.js';
+import { REGIONS, buildRegionMembership, applyRegionFilter } from './regions.js';
 
 const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const NT_COLOR = {
   acetylcholine: [0.96, 0.68, 0.26], gaba: [0.28, 0.58, 0.88],
   glutamate: [0.64, 0.45, 0.87], dopamine: [0.35, 0.78, 0.55],
@@ -48,8 +51,9 @@ const RADAR_DT = 1 / RADAR_HZ;
 const NEUTRAL_DRIVE = { walk: 0, turn: 0, stop: 0, backward: 0, escape: 0, proboscis: 0, wing: 0, groom: 0 };
 
 const S = {
-  meta: null, dicts: null, labels: null,
-  view: null, world: null, dec: null, radar: null, pacer: null,
+  meta: null, dicts: null, labels: null, channels: null,
+  view: null, world: null, dec: null, radar: null, pacer: null, inspector: null,
+  regionMembership: null,
   worker: null, ready: false,
   hz: null, spikeAccum: null, winCount: null,
   t: 0, nActive: 0, totalSpikes: 0,
@@ -97,6 +101,7 @@ async function boot() {
     S.labels = labels;
     const signRaw = await fetchGz('../data/sign.bin.gz');
     const channels = await (await fetch('../data/channels.json')).json();
+    S.channels = channels;
 
     setStatus('Loading connections…', 0.32);
     const connRaw = await fetchGz('../data/conn.bin.gz', f => setStatus('Loading connections…', 0.32 + f * 0.5));
@@ -122,6 +127,7 @@ async function boot() {
        Low goes further, in applyBrainQuality() below. */
     S.view.pixelRatioLimit = 1.5;
     buildNTLegend(meta.dicts.top_nt);
+    buildRegionsUI();
 
     const quality = readQuality();
     S.world = new WorldView($('#flyWell'), { labelContainer: $('#sceneLabels'), quality });
@@ -143,6 +149,19 @@ async function boot() {
       [conn.indptr.buffer, conn.indices.buffer, conn.weights.buffer],
     );
     S.pacer = createSimPacer(S.worker, { runMs: 250, pauseMs: 250 });
+
+    S.inspector = createInspector({
+      el: {
+        search: $('#insSearch'), results: $('#insResults'),
+        empty: $('#insEmpty'), body: $('#insBody'), title: $('#insTitle'), rootLink: $('#insRootLink'),
+        meta: $('#insMeta'), rate: $('#insRate'), activity: $('#insActivity'), history: $('#insHistory'),
+        connections: $('#insConnections'), involvement: $('#insInvolvement'),
+      },
+      meta: S.meta, dicts: S.dicts, labels: S.labels, channels: S.channels,
+      dec: S.dec, hz: S.hz, worker: S.worker, view: S.view,
+      onRegionPick: applyRegionSelection,
+    });
+    bindBrainWellClick();
 
     S.wc = initWorldControl({
       container: $('#worldControls'),
@@ -175,7 +194,9 @@ function onWorker(ev) {
     const sp = m.spikes;
     for (let k = 0; k < sp.length; k++) { const i = sp[k]; S.spikeAccum[i] = 1; S.winCount[i]++; }
     S.t = m.t; S.nActive = m.nActive; S.totalSpikes = m.totalSpikes;
+    return;
   }
+  if (m.type === 'neighbors') { S.inspector?.onNeighbors(m); return; }
 }
 
 function applyStimulus(built) {
@@ -203,6 +224,44 @@ function buildNTLegend(names) {
     const c = (NT_COLOR[n] || NT_COLOR.unknown).map(x => Math.round(x * 255)).join(',');
     return `<span class="nt"><i style="background:rgb(${c})"></i>${n}</span>`;
   }).join('');
+}
+
+/* Brain Regions filter (Neural Activity panel). regions.js does the actual
+   super_class/cell_class membership test and the dim-array write; this just
+   builds the dropdown (with real per-region counts) and wires it. */
+function buildRegionsUI() {
+  const { membership, counts } = buildRegionMembership(S.dicts, S.labels);
+  S.regionMembership = membership;
+  const sel = $('#regionsFilter');
+  sel.innerHTML = '<option value="-1">All regions</option>' +
+    REGIONS.map((r, i) => `<option value="${i}">${esc(r.label)} — ${counts[i].toLocaleString()}</option>`).join('');
+  sel.addEventListener('change', () => applyRegionSelection(+sel.value));
+}
+function applyRegionSelection(idOrIndex) {
+  const idx = typeof idOrIndex === 'string' && Number.isNaN(+idOrIndex)
+    ? REGIONS.findIndex(r => r.id === idOrIndex)
+    : +idOrIndex;
+  if (idx < -1) return;
+  $('#regionsFilter').value = String(idx);
+  applyRegionFilter(S.view, S.regionMembership, idx);
+}
+
+/* 3D-click selection in the Neural Activity panel. gl.js's pick() assumes the
+   canvas backing store was sized at min(devicePixelRatio, 2) -- true before
+   the performance pass, which introduced BrainView.pixelRatioLimit (1.5 on
+   High, 1 on Low) and made that assumption wrong on any display where
+   devicePixelRatio > pixelRatioLimit. This corrects the *input* coordinate
+   pick() receives so the two agree again, without touching gl.js. */
+function bindBrainWellClick() {
+  const canvas = $('#brainWell');
+  canvas.addEventListener('click', e => {
+    const r = canvas.getBoundingClientRect();
+    const realDpr = Math.min(devicePixelRatio || 1, S.view.pixelRatioLimit ?? 2);
+    const pickDpr = Math.min(devicePixelRatio || 1, 2);
+    const k = realDpr / pickDpr;
+    const i = S.view.pick((e.clientX - r.left) * k, (e.clientY - r.top) * k);
+    if (i >= 0) S.inspector.select(i); else S.inspector.clearSelection();
+  });
 }
 
 function buildScenarioPicker() {
@@ -342,6 +401,8 @@ function readout(now) {
   setText($('#overlayDirection'), `${Math.round(((S.world.rig.s.heading * 180 / Math.PI) % 360 + 360) % 360)}°`);
   setText($('#overlayPos'), `X:${S.world.rig.s.x.toFixed(1)} Z:${S.world.rig.s.z.toFixed(1)}`);
   setText($('#overlaySpeed'), `${Math.abs(S.world.rig.s.speed).toFixed(2)} u/s`);
+
+  S.inspector?.sampleHistory();   // same 5 Hz cadence hz[] itself just updated at
 }
 
 window.neuralGod = S;          // same debugging convention as the bench's `window.bench`
