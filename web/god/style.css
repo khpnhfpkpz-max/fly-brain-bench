@@ -54,9 +54,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .brand h1{font-size:17px; letter-spacing:.14em; font-weight:700}
 .brand p{margin:1px 0 0; font-size:11px; color:var(--ink3); max-width:40ch}
 .mark{
-  width:30px; height:30px; border-radius:9px; flex:none; position:relative;
-  background:radial-gradient(circle at 36% 30%, #eafaff 0 12%, var(--cyan) 22% 42%, #0f3547 58% 74%, #061119 88%);
-  box-shadow:0 0 18px rgba(95,208,255,.45), inset 0 0 12px rgba(0,0,0,.5);
+  width:30px; height:30px; flex:none; object-fit:cover; display:block;
+  border-radius:9px;
+  filter:drop-shadow(0 0 9px rgba(95,208,255,.5));
 }
 .tabs{display:flex; gap:6px; margin:0 auto}
 .tab{
