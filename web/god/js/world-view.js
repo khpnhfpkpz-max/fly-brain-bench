@@ -127,23 +127,64 @@ export class WorldView {
     this.setQuality(quality);
   }
 
+  /* Phase 5 (mobile): one-finger drag still rotates exactly as before (the
+     original code path, unchanged); a second finger switches to a pinch
+     that zooms `dist` instead of both fingers' individual movement being
+     read as rotation (confirmed happening before this fix -- two touch
+     points with no per-pointer bookkeeping meant whichever finger moved
+     last won, jittering yaw with no zoom at all). Tracking `active` by
+     pointerId is the only change mice ever see: a mouse never produces a
+     second simultaneous pointer, so this is byte-identical to the old
+     single-`dragging`-boolean behaviour for mouse input. */
   _bind() {
     const c = this.canvas;
-    let dragging = false, lx = 0, ly = 0;
+    const active = new Map();          // pointerId -> {x,y}, whatever pointer type
+    let mode = null;                   // 'rotate' | 'pinch' | null
+    let lx = 0, ly = 0;                 // rotate anchor
+    let pinchStartDist = 0, pinchStartViewDist = 0;
+    const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
     this.handlers = {
       pointerdown: e => {
-        if (e.button !== 0) return;
-        c.setPointerCapture(e.pointerId);
-        dragging = true; lx = e.clientX; ly = e.clientY; this.userMoved = true;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        /* setPointerCapture can throw (e.g. a pointer id the browser does
+           not currently recognise as active) -- letting that escape here
+           would abort the rest of this handler, silently dropping the
+           active-pointer bookkeeping below and leaving a second finger
+           unrecognised. Capture is a delivery guarantee (keeps move/up
+           events coming even if the finger slides off the canvas); losing
+           it only degrades that guarantee, so it must never take down
+           the gesture logic itself. */
+        try { c.setPointerCapture(e.pointerId); } catch (_) { /* best-effort */ }
+        active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        this.userMoved = true;
+        if (active.size === 1) {
+          mode = 'rotate'; lx = e.clientX; ly = e.clientY;
+        } else if (active.size === 2) {
+          mode = 'pinch';
+          const [a, b] = [...active.values()];
+          pinchStartDist = dist2(a, b); pinchStartViewDist = this.dist;
+        }
       },
       pointermove: e => {
-        if (!dragging) return;
-        this.yaw -= (e.clientX - lx) * 0.006;
-        this.pitch = Math.max(0.03, Math.min(1.25, this.pitch + (e.clientY - ly) * 0.005));
-        lx = e.clientX; ly = e.clientY;
+        if (!active.has(e.pointerId)) return;
+        active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (mode === 'rotate' && active.size === 1) {
+          this.yaw -= (e.clientX - lx) * 0.006;
+          this.pitch = Math.max(0.03, Math.min(1.25, this.pitch + (e.clientY - ly) * 0.005));
+          lx = e.clientX; ly = e.clientY;
+        } else if (mode === 'pinch' && active.size === 2) {
+          const [a, b] = [...active.values()];
+          const d = dist2(a, b);
+          this.dist = Math.max(1.6, Math.min(16, pinchStartViewDist * (pinchStartDist / d)));
+        }
       },
-      pointerup: () => { dragging = false; },
-      pointercancel: () => { dragging = false; },
+      pointerup: e => {
+        active.delete(e.pointerId);
+        if (active.size === 0) { mode = null; }
+        else if (active.size === 1) { mode = 'rotate'; const [p] = active.values(); lx = p.x; ly = p.y; }
+      },
+      pointercancel: e => { active.delete(e.pointerId); if (active.size < 2) mode = active.size === 1 ? 'rotate' : null; },
       wheel: e => {
         e.preventDefault();
         this.userMoved = true;

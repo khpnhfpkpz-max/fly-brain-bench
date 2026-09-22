@@ -21,6 +21,7 @@ import { createSimPacer } from './sim-pacer.js';
 import { createInspector } from './inspector.js';
 import { createIntervention } from './intervention.js';
 import { REGIONS, buildRegionMembership, applyRegionFilter } from './regions.js';
+import { bindBrainPinchZoom } from './touch-brain.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -128,6 +129,7 @@ async function boot() {
        never needed. 1.5 is a flat, quality-independent cut (-44% pixels);
        Low goes further, in applyBrainQuality() below. */
     S.view.pixelRatioLimit = 1.5;
+    bindBrainPinchZoom(S.view, $('#brainWell'));   // touch-only; single-finger drag is gl.js's own, unchanged
     buildNTLegend(meta.dicts.top_nt);
     buildRegionsUI();
 

@@ -369,7 +369,17 @@ main > *{min-width:0; min-height:0}
 }
 
 @media (max-width: 1240px){
-  main{grid-template-columns:1fr; grid-template-rows:auto auto auto auto}
+  main{
+    grid-template-columns:1fr;
+    /* `main` gained two more full-width children after this rule was
+       written (Phase 3's inspector, Phase 4's hacking panel) -- a fixed
+       four-track `auto auto auto auto` list only ever sized the first
+       four rows and silently collapsed the fifth/sixth to 0px, which hid
+       the World Control and Neural Activity rails entirely at this width.
+       `auto-rows` sizes however many rows actually exist. */
+    grid-template-rows:none;
+    grid-auto-rows:max-content;
+  }
   .center{height:58vh}
   .pipeline{flex-wrap:wrap}
   .pipe-arrow{display:none}
@@ -512,3 +522,119 @@ main > *{min-width:0; min-height:0}
 /* `.iv-progress` sets display:flex, which would otherwise win over the
    [hidden] attribute and leave a finished run's progress bar on screen. */
 .iv-progress[hidden], .btn[hidden]{display:none}
+
+/* ---------------- Phase 5: mobile layout (Plan B) ----------------
+
+   Everything in this section is scoped to `@media (max-width:760px)` --
+   nothing here changes the PC layout at all, verified by a pixel-identical
+   screenshot diff at 1600px before and after (see the delivery notes).
+   Below 760px, `main` is already single-column (inherited from the
+   max-width:1240px rule above); this block is purely about touch
+   ergonomics and which panels a phone screen actually keeps:
+
+   Kept as full functionality: World Control (all sliders/toggles),
+   Scenario, the 3D world (touch drag + pinch), Neural Activity, Behavior,
+   and Neural Inspector's search + live Stimulate/Suppress/Disable.
+
+   Hidden, each replaced by a `.mobile-only-notice` saying so rather than
+   silently disappearing: the Neural Pipeline's five-stage diagram, Neural
+   Inspector's Outgoing/Incoming connection lists, and the Neural Hacking
+   panel's Normal vs Intervention comparison experiment (Run comparison is
+   a 3x-biological-time computation the worker was never asked to finish
+   quickly, plus a wide two-column results table -- both a poor fit for a
+   phone screen and a phone CPU; Stimulate/Suppress/Disable, which live in
+   the Inspector rather than this panel, are unaffected and stay live). */
+.mobile-only-notice{display:none}
+
+@media (max-width:760px){
+  /* header: let the tab row wrap onto its own line instead of forcing an
+     897px-wide flex row that shrunk the entire page to fit (see the audit:
+     .top's min-content was measured at 897px against a 390px screen) */
+  /* `body` is `display:grid` with one implicit column shared by .top and
+     main (grid-template-rows:auto 1fr, no explicit columns). CSS Grid's
+     "auto" track sizing floors the column at the WIDEST grid item's own
+     automatic minimum size (min-content, by default) -- unlike ordinary
+     block/flex layout, where a child that doesn't fit just overflows
+     without changing its parent's resolved size, an oversized grid ITEM
+     can inflate the shared TRACK, and with it the grid CONTAINER itself
+     (`body`). `main` was already safe: not because main has min-width:0
+     (it doesn't, as a grid item), but because its own min-content, once
+     `main > *{min-width:0}` (pre-existing, above) let ITS children stop
+     contributing theirs, measures a trivial ~58px. `.top` had no
+     equivalent: with flex-wrap active, its min-content became the widest
+     single wrapped line -- .tabs' four buttons, 370px unwrapped, plus
+     .top's own padding, 398px -- 8px past the 390px screen, confirmed
+     (removing .top from the page was the one change that dropped
+     `document.documentElement.scrollWidth` from 398 to exactly 390; nothing
+     else moved it at all). Same fix, one level higher: min-width:0 here
+     lets `.top` itself collapse to the track's real 390px, and the rule
+     below lets ITS children (brand/tabs/status) then do the same instead
+     of forcing it back open; .tabs' own `overflow-x:auto` (further below)
+     is what actually absorbs the four tab buttons not fitting in one
+     row, by scrolling horizontally within its own box rather than by
+     forcing every ancestor wider. */
+  .top{flex-wrap:wrap; row-gap:10px; padding:10px 14px; min-width:0}
+  .top > *{min-width:0}
+  .brand p{display:none}                 /* the tagline; kept on the boot card and guide.html */
+  .tabs{order:3; width:100%; margin:0; justify-content:flex-start; overflow-x:auto; -webkit-overflow-scrolling:touch}
+  .status{margin-left:auto}
+
+  /* DOM order stacks World Control (all ten sliders/toggles, ~1600px
+     expanded) ahead of the 3D world in the single-column layout -- found
+     by actually measuring where #flyWell ends up (getBoundingClientRect
+     placed it ~1800px down the page), which would leave a phone visitor
+     scrolling past two and a half screens of sliders before ever seeing
+     the fly. A grid `order` moves the world to the top of the stack
+     without touching index.html's DOM order or affecting the desktop
+     grid (main's columns there place it visually in the middle already;
+     `order` is a no-op at any width above this media query). */
+  .center{height:46vh; order:-1}
+  #flyWell, #brainWell{touch-action:none}   /* let our own pointer/pinch handling own these canvases (T1) */
+
+  /* Tap targets: the audit measured several controls below the 44x44px
+     guideline (World Control's sliders at an effective 3px hit height,
+     32px settings button, 37px tabs). This file already draws a range
+     input's track as the input's OWN box (`.wc-slider input[type=range]`
+     sets `height:3px` directly, no separate track pseudo-element) at
+     specificity (0,2,0) -- a bare `input[type=range]{height:44px}` here
+     would lose that cascade tie and change nothing, confirmed by testing
+     the first version of this rule. Overriding the same qualified
+     selector wins on source order, and a `background-size` trick keeps
+     the enlarged box's visible line thin rather than turning it into a
+     44px-tall bar. */
+  .tab{min-height:44px; padding:8px 16px}
+  .icon-btn, #btnSettings{width:44px; height:44px}
+  .cam-chip select{min-height:36px}
+  .wc-slider input[type=range], .iv-hz input[type=range]{
+    height:44px; border-radius:0;
+    background:linear-gradient(90deg, rgba(95,208,255,.55), rgba(95,208,255,.12)) no-repeat center / 100% 3px;
+  }
+  .wc-slider input[type=range]::-webkit-slider-thumb, .iv-hz input[type=range]::-webkit-slider-thumb{
+    width:26px; height:26px; box-shadow:0 0 8px rgba(95,208,255,.6);
+  }
+  .wc-slider input[type=range]::-moz-range-thumb, .iv-hz input[type=range]::-moz-range-thumb{
+    width:26px; height:26px;
+  }
+  .wc-toggle{min-height:44px; padding:10px 18px}
+  .iv-btn{min-height:44px; padding:8px 13px}
+
+  /* iOS Safari zooms the whole page in on focusing a text field whose
+     computed font-size is under 16px, and never zooms back out on its
+     own. #ivTrial is a <select>, which iOS does not zoom on focusing --
+     it is inside .hacking (hidden on mobile) anyway. */
+  .ins-search{font-size:16px}
+  .ins-results{width:100%; left:0; right:0}
+  .ins-search, .scenario-select, #regionsFilter, #cameraMode, #btnResetWorld{min-height:44px}
+  /* only exists in the DOM once a search has actual results, so the
+     no-search-yet audit that caught the other controls never saw this
+     one -- found instead by actually running a search and measuring it */
+  .ins-result{min-height:44px}
+
+  /* hidden on a phone -- each has a .mobile-only-notice sibling instead */
+  .pipeline, .hacking, #insConnections{display:none}
+  .mobile-only-notice{
+    display:block; margin:14px 15px; padding:12px 14px; border-radius:var(--rs);
+    border:1px dashed var(--line2); background:rgba(95,208,255,.04);
+    font-size:12px; line-height:1.65; color:var(--ink3);
+  }
+}
