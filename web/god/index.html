@@ -30,7 +30,7 @@
     <h1>THE EMERGENCE</h1>
   </div>
 
-  <nav class="tabs">
+  <nav class="tabs" id="navTabs">
     <button class="tab on" type="button">World</button>
     <button class="tab on" type="button">Neural</button>
     <button class="tab on" type="button">Experiment</button>
@@ -53,6 +53,8 @@
       <p class="pop-note">Low turns off the water reflection, bloom, shadows and multisampling and renders at pixel ratio 1. The simulation, the decoder and the world wiring are identical either way.</p>
       <button id="btnResetCam" class="btn wide" type="button">Reset camera</button>
     </div>
+    <button id="btnTabsToggle" class="icon-btn tabs-toggle" type="button"
+      aria-expanded="true" aria-controls="navTabs" aria-label="Toggle navigation tabs">&#8963;</button>
   </div>
 </header>
 

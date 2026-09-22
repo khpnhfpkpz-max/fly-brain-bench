@@ -22,6 +22,7 @@ import { createInspector } from './inspector.js';
 import { createIntervention } from './intervention.js';
 import { REGIONS, buildRegionMembership, applyRegionFilter } from './regions.js';
 import { bindBrainPinchZoom } from './touch-brain.js';
+import { bindMobileTabsCollapse } from './mobile-header.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -448,4 +449,5 @@ function readout(now) {
 }
 
 window.neuralGod = S;          // same debugging convention as the bench's `window.bench`
+bindMobileTabsCollapse();      // header-only; independent of the connectome load below
 boot();

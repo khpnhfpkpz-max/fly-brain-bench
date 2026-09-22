@@ -88,6 +88,15 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   background-repeat:no-repeat; background-position:center; background-size:19px;
 }
 .icon-btn:hover{border-color:var(--line2)}
+/* Its own glyph (a plain chevron character, not another background-image
+   SVG), not the gear it would otherwise inherit from .icon-btn above --
+   inert everywhere above 760px (#btnTabsToggle{display:none} further
+   below wins there on specificity), so defining it unconditionally here
+   is harmless. */
+.icon-btn.tabs-toggle{
+  background-image:none; align-items:center; justify-content:center;
+  font-size:15px; color:var(--ink2); line-height:1;
+}
 .pop{
   position:absolute; top:42px; right:0; width:270px; padding:14px; z-index:40;
   border:1px solid var(--line2); border-radius:var(--r); background:var(--panel-solid);
@@ -548,6 +557,7 @@ main > *{min-width:0; min-height:0}
    phone screen and a phone CPU; Stimulate/Suppress/Disable, which live in
    the Inspector rather than this panel, are unaffected and stay live). */
 .mobile-only-notice{display:none}
+#btnTabsToggle{display:none}
 
 @media (max-width:760px){
   /* header: let the tab row wrap onto its own line instead of forcing an
@@ -597,28 +607,60 @@ main > *{min-width:0; min-height:0}
      to reserve the screen space `.center` used to occupy so the panels
      start right where the pinned view ends rather than underneath it.
 
-     top:171px is main's header height (159px, measured with Playwright
-     across 360-430px -- the width range this query covers -- and stable
-     there: the header wraps to a fixed two-row layout of brand+status
-     then the tabs, which scroll horizontally rather than wrapping to a
-     third row) plus main's own 12px top padding, i.e. exactly where
-     `.center` already rendered before this change (measured: 171px). The
-     12px left/right insets match main's own left/right padding, so the
-     pinned rectangle is the same width and position it always was, not a
-     new edge-to-edge one. `main` is already the scrolling element
-     (`overflow-y:auto`, not body -- body is `overflow:hidden` and only
-     holds the never-scrolling header + main as two grid rows), so a touch
-     below the pinned rectangle scrolls main exactly as before; a touch on
-     the pinned rectangle still reaches world-view.js's own pointer
-     handlers unchanged, since neither its binding nor #flyWell's
-     touch-action:none depend on `.center`'s position property. The two
-     are disjoint screen rectangles, so a single touch is never claimed by
-     both. */
+     top:calc(var(--header-h, 159px) + 12px) is the header's own height
+     (159px expanded / 105px with the tab row collapsed, Phase 7 below --
+     measured with Playwright across 360-430px, stable there: the header
+     wraps to a fixed two-row layout of brand+status then the tabs, which
+     scroll horizontally rather than wrapping to a third row) plus main's
+     own 12px top padding, i.e. exactly where `.center` already rendered
+     before this change. `--header-h` is written by mobile-header.js's
+     ResizeObserver, so this stays correct across both header states from
+     one shared measurement instead of two hand-kept pixel numbers; the
+     `159px` fallback only covers the brief instant before that observer's
+     first callback runs. The 12px left/right insets match main's own
+     left/right padding, so the pinned rectangle is the same width and
+     position it always was, not a new edge-to-edge one. `main` is already
+     the scrolling element (`overflow-y:auto`, not body -- body is
+     `overflow:hidden` and only holds the never-scrolling header + main as
+     two grid rows), so a touch below the pinned rectangle scrolls main
+     exactly as before; a touch on the pinned rectangle still reaches
+     world-view.js's own pointer handlers unchanged, since neither its
+     binding nor #flyWell's touch-action:none depend on `.center`'s
+     position property. The two are disjoint screen rectangles, so a
+     single touch is never claimed by both. */
   .center{
-    position:fixed; top:171px; left:12px; right:12px; height:46vh; z-index:15;
+    position:fixed; top:calc(var(--header-h, 159px) + 12px); left:12px; right:12px; height:46vh; z-index:15;
+    transition:top .2s ease;
   }
-  main{padding-top:calc(46vh + 12px)}
+  main{padding-top:calc(var(--header-h, 159px) + 12px + 46vh); transition:padding-top .2s ease}
   #flyWell, #brainWell{touch-action:none}   /* let our own pointer/pinch handling own these canvases (T1) */
+
+  /* ---------------- Phase 7: collapsible tab row ----------------
+     The tab row (World/Neural/Experiment/Evolution) is pure navigation
+     chrome -- three of its four buttons don't do anything on this page,
+     the fourth is simply disabled -- so on a phone it is the one part of
+     the pinned header worth reclaiming: collapsing it saves 159-105=54px,
+     handed straight to the 3D view and the panels below (`.center`'s top
+     and `main`'s padding-top both shrink with it, above, since both are
+     driven by the one measured `--header-h`).
+
+     The toggle button lives in the row that never disappears (brand +
+     status), next to #btnSettings, not in the row it controls -- so it
+     can never be mistaken for one of the (mostly inert) tab buttons next
+     to it, and stays reachable in either state. #btnTabsToggle is
+     display:none above this breakpoint (with the other icon buttons,
+     below), the same "invisible and inert on desktop" pattern as
+     .mobile-only-notice.
+
+     The tab row itself snaps to display:none instantly on toggle --
+     animating its own height at the same time .center's `top` is also
+     transitioning (above) would be two independent timelines to keep in
+     sync for no visual benefit; letting the 3D view/panels glide smoothly
+     into the space a row that has already snapped away leaves behind
+     reads as one clean motion, not two. */
+  .top.tabs-collapsed .tabs{display:none}
+  #btnTabsToggle{display:flex; transition:transform .2s ease}
+  .top.tabs-collapsed #btnTabsToggle{transform:rotate(180deg)}
 
   /* Tap targets: the audit measured several controls below the 44x44px
      guideline (World Control's sliders at an effective 3px hit height,
