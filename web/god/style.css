@@ -9,6 +9,10 @@
   --fd:'Archivo',system-ui,sans-serif;
   --fb:'IBM Plex Sans',system-ui,sans-serif;
   --fm:'IBM Plex Mono',ui-monospace,monospace;
+  /* the app's own name only -- "THE EMERGENCE" in the header and on the
+     boot screen -- not the shared heading font (--fd), which every panel
+     title (WORLD CONTROL, SCENARIO, ...) still uses unchanged. */
+  --ftitle:'Space Grotesk',var(--fd);
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -36,7 +40,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 }
 #boot.done{opacity:0; pointer-events:none}
 .boot-card{width:min(430px,88vw)}
-.boot-card .eyebrow{font-family:var(--fm); font-size:10.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--cyan); margin:0 0 8px}
+.boot-card .eyebrow{font-family:var(--ftitle); font-size:10.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--cyan); margin:0 0 8px}
 .boot-card h1{font-size:21px; margin:0 0 24px; font-weight:600}
 .load-row{display:flex; justify-content:space-between; font-size:12px; color:var(--ink2); margin-bottom:7px}
 .track{height:3px; background:rgba(94,177,207,.14); border-radius:3px; overflow:hidden}
@@ -51,8 +55,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   border-bottom:1px solid var(--line);
 }
 .brand{display:flex; align-items:center; gap:12px; min-width:0}
-.brand h1{font-size:17px; letter-spacing:.14em; font-weight:700}
-.brand p{margin:1px 0 0; font-size:11px; color:var(--ink3); max-width:40ch}
+.brand h1{font-family:var(--ftitle); font-size:17px; letter-spacing:.14em; font-weight:700}
 .mark{
   width:30px; height:30px; flex:none; object-fit:cover; display:block;
   border-radius:9px;
@@ -575,7 +578,6 @@ main > *{min-width:0; min-height:0}
      forcing every ancestor wider. */
   .top{flex-wrap:wrap; row-gap:10px; padding:10px 14px; min-width:0}
   .top > *{min-width:0}
-  .brand p{display:none}                 /* the tagline; kept on the boot card and guide.html */
   .tabs{order:3; width:100%; margin:0; justify-content:flex-start; overflow-x:auto; -webkit-overflow-scrolling:touch}
   .status{margin-left:auto}
 
