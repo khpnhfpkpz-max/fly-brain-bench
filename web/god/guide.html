@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEURAL GOD の使い方ガイド</title>
+<meta name="description" content="専門知識なしで読める、NEURAL GOD の使い方ガイド。">
+<style>
+:root{
+  --bg:#f7f8fa; --panel:#ffffff; --line:#e3e7ec;
+  --ink:#1b232c; --ink2:#4b5a68; --ink3:#7c8894;
+  --blue:#1c6fd6; --blue-soft:#eaf2fd;
+  --amber:#a9660a; --amber-soft:#fdf3e2; --amber-line:#f0d8a8;
+  --green:#1f8a4c; --green-soft:#e9f7ef;
+  --red:#c23b2e; --red-soft:#fbebe9;
+  --radius:14px;
+  --fb:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,system-ui,sans-serif;
+  --fm:ui-monospace,"SF Mono",Consolas,"IBM Plex Mono",monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--fb);
+  font-size:16px; line-height:1.85; -webkit-font-smoothing:antialiased;
+}
+a{color:var(--blue)}
+img{max-width:100%; display:block}
+.wrap{max-width:880px; margin:0 auto; padding:0 20px}
+
+/* ---------------- top bar ---------------- */
+.topbar{
+  position:sticky; top:0; z-index:20; background:rgba(247,248,250,.92);
+  backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+}
+.topbar .wrap{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 20px}
+.topbar .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px; letter-spacing:.02em}
+.topbar .brand img{width:26px; height:26px; border-radius:7px}
+.topbar nav{display:flex; gap:4px; flex-wrap:wrap}
+.topbar nav a{
+  font-size:12.5px; color:var(--ink2); text-decoration:none; padding:6px 10px;
+  border-radius:8px; white-space:nowrap;
+}
+.topbar nav a:hover{background:var(--blue-soft); color:var(--blue)}
+.open-app{
+  font-size:12.5px; font-weight:600; color:#fff !important; background:var(--blue);
+  padding:7px 14px; border-radius:8px; text-decoration:none; white-space:nowrap;
+}
+
+/* ---------------- hero ---------------- */
+.hero{padding:52px 0 8px}
+.eyebrow{
+  font-family:var(--fm); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--blue); margin:0 0 10px;
+}
+.hero h1{font-size:30px; line-height:1.4; margin:0 0 14px}
+.hero p.lead{font-size:17px; color:var(--ink2); margin:0 0 4px; max-width:64ch}
+
+/* ---------------- headline concept card ---------------- */
+.concept{
+  margin:26px 0 40px; padding:22px 24px; border-radius:var(--radius);
+  background:var(--blue-soft); border:1px solid #cfe1f8;
+}
+.concept p{margin:0; font-size:16.5px}
+.concept .quote{
+  font-style:italic; color:var(--ink2); font-size:14.5px; margin-top:12px;
+  padding-top:12px; border-top:1px solid #cfe1f8;
+}
+
+/* ---------------- sections ---------------- */
+section{padding:34px 0}
+section + section{border-top:1px solid var(--line)}
+h2{font-size:22px; margin:0 0 6px; display:flex; align-items:center; gap:10px}
+h2 .num{
+  display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
+  border-radius:50%; background:var(--ink); color:#fff; font-size:14px; font-weight:700; flex:none;
+}
+h3{font-size:17px; margin:28px 0 8px}
+h3 .tag{
+  font-family:var(--fm); font-size:11.5px; font-weight:500; color:var(--ink3);
+  background:#eef1f4; padding:2px 7px; border-radius:5px; margin-left:8px;
+}
+p{margin:10px 0}
+.section-intro{color:var(--ink2); margin-top:0}
+ul.plain{padding-left:1.3em; margin:10px 0}
+ul.plain li{margin:6px 0}
+
+/* ---------------- figures ---------------- */
+figure{margin:20px 0 26px}
+figure img{
+  border-radius:12px; border:1px solid var(--line);
+  box-shadow:0 6px 22px rgba(20,30,40,.08);
+}
+figcaption{
+  font-size:13px; color:var(--ink3); margin-top:9px; line-height:1.6;
+}
+.shot-row{display:flex; gap:16px; flex-wrap:wrap}
+.shot-row figure{flex:1 1 260px; margin:20px 0}
+
+/* ---------------- callouts ---------------- */
+.callout{
+  margin:16px 0; padding:16px 18px; border-radius:10px; border:1px solid;
+  font-size:14.5px; line-height:1.75;
+}
+.callout b{display:block; margin-bottom:4px; font-size:14px}
+.callout.info{background:var(--blue-soft); border-color:#cfe1f8; color:#1a3a5c}
+.callout.note{background:#f1f3f5; border-color:var(--line); color:var(--ink2)}
+.callout.warn{background:var(--amber-soft); border-color:var(--amber-line); color:#5c3d0a}
+.callout.good{background:var(--green-soft); border-color:#bfe6cf; color:#124a2a}
+
+/* ---------------- control table ---------------- */
+.ctl{border:1px solid var(--line); border-radius:12px; overflow:hidden; margin:16px 0}
+.ctl-row{padding:14px 18px; border-bottom:1px solid var(--line)}
+.ctl-row:last-child{border-bottom:none}
+.ctl-row.off{background:#fafafa}
+.ctl-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.ctl-name{font-weight:700; font-size:15px}
+.badge{
+  font-family:var(--fm); font-size:10.5px; padding:2px 8px; border-radius:6px; font-weight:600;
+}
+.badge.on{background:var(--green-soft); color:var(--green)}
+.badge.off{background:var(--red-soft); color:var(--red)}
+.ctl-row p{margin:6px 0 0; font-size:14px; color:var(--ink2)}
+
+/* ---------------- tutorial ---------------- */
+ol.steps{list-style:none; margin:18px 0; padding:0; counter-reset:step}
+ol.steps > li{
+  counter-increment:step; position:relative; padding:6px 0 6px 46px; margin-bottom:6px;
+}
+ol.steps > li::before{
+  content:counter(step); position:absolute; left:0; top:6px;
+  width:32px; height:32px; border-radius:50%; background:var(--blue); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;
+}
+ol.steps > li b{display:block; font-size:15.5px; margin-bottom:2px}
+ol.steps > li span{color:var(--ink2); font-size:14.5px}
+
+/* ---------------- honesty section ---------------- */
+.honesty{background:#fffaf2}
+.honesty h2 .num{background:var(--amber)}
+
+/* ---------------- toc ---------------- */
+.toc{
+  margin:26px 0 0; padding:18px 20px; border:1px solid var(--line); border-radius:12px; background:#fff;
+}
+.toc b{font-size:13px; letter-spacing:.06em; color:var(--ink3); text-transform:uppercase}
+.toc ol{margin:10px 0 0; padding-left:1.2em; font-size:14.5px}
+.toc li{margin:5px 0}
+
+footer{padding:30px 0 60px; color:var(--ink3); font-size:13px}
+footer a{color:var(--ink3)}
+
+@media (max-width:600px){
+  .hero h1{font-size:24px}
+  .topbar nav{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><img src="assets/logo.webp" alt=""> NEURAL GOD ガイド</div>
+    <a class="open-app" href="index.html">アプリを開く →</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <p class="eyebrow">NEURAL GOD · 使い方ガイド</p>
+    <h1>神経科学もプログラミングも知らなくて大丈夫です。<br>このページだけで一通り遊べるようになります。</h1>
+    <p class="lead">専門用語はできるだけ使わず、出てきた場合はその場で言い換えています。まずは下の「これは何か」から読んでみてください。</p>
+  </div>
+
+  <div class="toc">
+    <b>目次</b>
+    <ol>
+      <li><a href="#what">これは何か</a></li>
+      <li><a href="#layout">画面の見方</a></li>
+      <li><a href="#panels">各パネルの説明</a></li>
+      <li><a href="#tutorial">まず何をすればいいか</a></li>
+      <li><a href="#honesty">正直にお伝えする注意点</a></li>
+    </ol>
+  </div>
+</div>
+
+<section id="what">
+  <div class="wrap">
+    <h2><span class="num">1</span>これは何か</h2>
+    <div class="concept">
+      <p>これは、<b>本物のハエ（キイロショウジョウバエ）の脳の配線図</b>をもとに作られた、脳の動きを再現するシミュレーターです。実際に顕微鏡で調べられた、約13万個の神経細胞と、その270万本のつながりのデータをそのまま使っています。</p>
+      <p style="margin-top:10px">ただし、あなたが直接ハエを歩かせたりジャンプさせたりする操作はできません。あなたが動かせるのは、<b>「ハエの周りの世界」</b>（気温・食べ物のにおい・何かが近づいてくる感覚、など）と、<b>「ハエの脳そのもの」</b>（特定の神経細胞を刺激したり黙らせたりする）の2つだけです。ハエがどう動くかは、その結果として脳が計算した通りに、自動的に決まります。</p>
+      <p class="quote">「You don't control the creature. You control its world and its brain.」<br>
+      （あなたが操作するのは生き物そのものではなく、その世界と、その脳です。）</p>
+    </div>
+    <p>言い換えると、これは<b>脳の"シミュレーションゲーム"</b>です。世界に何かを起こす → 脳の中で信号が伝わっていく様子が見える → その結果、ハエがどんな行動を選ぶかが分かる、という一連の流れをそのまま観察できます。</p>
+  </div>
+</section>
+
+<section id="layout">
+  <div class="wrap">
+    <h2><span class="num">2</span>画面の見方（ざっくり）</h2>
+    <p class="section-intro">起動すると、下のような1枚の画面が表示されます。大きく4つのエリアに分かれています。</p>
+    <figure>
+      <img src="guide-assets/01-overview.png" alt="NEURAL GOD の画面全体。左に世界を操作するパネル、中央にハエと3D世界、右に脳の活動と行動、下に信号の流れと詳細パネルが並ぶ。">
+      <figcaption>①左：世界を操作する場所　②中央：ハエと世界の3D映像　③右：脳の中の様子と、いまの行動　④下：脳の中の信号の流れ・ニューロンを1つずつ調べる場所・脳への介入実験（この下にさらに続きます）</figcaption>
+    </figure>
+    <ul class="plain">
+      <li><b>① 左（WORLD CONTROL / SCENARIO）</b> — 気温や食べ物など、ハエの「まわりの世界」を操作するスライダーやボタンが並んでいます。</li>
+      <li><b>② 中央</b> — ハエとその世界を3Dで見られる場所です。右上のドロップダウンでカメラの動き方を変えられます。</li>
+      <li><b>③ 右（NEURAL ACTIVITY / BEHAVIOR）</b> — 脳の中で今どれくらいの神経細胞が信号を出しているか、そしてハエが今どんな行動をとろうとしているかが表示されます。</li>
+      <li><b>④ 下</b> — 信号が脳の中をどう流れているかの5段階の図、気になる神経細胞を1つずつ検索して調べる場所（NEURAL INSPECTOR）、そして特定の神経細胞に介入して比較実験ができる場所（NEURAL HACKING）が縦に並んでいます。</li>
+    </ul>
+    <p>画面の一番上には「World / Neural / Experiment / Evolution」という4つのタブが並んでいますが、これは見出しのようなもので、<b>押しても画面は切り替わりません</b>。今説明した①〜④の内容が、すべてこの1枚のページの中にすでに収まっています（詳しくは最後の「正直にお伝えする注意点」をご覧ください）。</p>
+  </div>
+</section>
+
+<section id="panels">
+  <div class="wrap">
+    <h2><span class="num">3</span>各パネルで「何を押すと」「何が起きるか」</h2>
+
+    <h3>WORLD CONTROL <span class="tag">左上のパネル</span></h3>
+    <p class="section-intro">スライダーやボタンを動かすと、ハエの「感覚」に実際に刺激が送られます。反応は本物のシミュレーション結果で、見た目だけの演出ではありません。</p>
+    <figure>
+      <img src="guide-assets/02-world-control.png" alt="WORLD CONTROL パネル。Light、Temperature、Humidity、Wind、Foodなどのスライダーとトグルが並ぶ。">
+    </figure>
+    <div class="ctl">
+      <div class="ctl-row off">
+        <div class="ctl-head"><span class="ctl-name">Light（明るさ）</span><span class="badge off">NOT CONNECTED</span></div>
+        <p>動かしても<b>ハエの脳には何も伝わりません</b>。理由は、このハエの脳のデータの中に「明るさ全体を感じる」ための神経回路が見つかっていないためです（色を感じる非常に狭い回路は別に存在しますが、それとは違います）。存在しない反応をでっち上げるのではなく、正直に「つながっていません」と表示しています。</p>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl-head"><span class="ctl-name">Temperature（気温）</span></div>
+        <p>触角にある温度を感じる神経細胞を刺激します。上げるほど、その神経回路の反応が強くなります。</p>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl-head"><span class="ctl-name">Humidity（湿度）</span></div>
+        <p>湿度を感じる神経細胞を刺激します。</p>
+      </div>
+      <div class="ctl-row off">
+        <div class="ctl-head"><span class="ctl-name">Wind（風）</span><span class="badge off">NOT CONNECTED</span></div>
+        <p>Lightと同じ理由で、<b>今のところハエの脳には影響しません</b>。風を感じるための神経回路が、このデータの中には見つかっていないためです。</p>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl-head"><span class="ctl-name">Food（食べ物・ON/OFF）</span></div>
+        <p>ONにすると、口先が甘いものに直接触れたときの神経細胞が刺激されます。ハエの「食べようとする行動」に直結する、実験でもよく使われる刺激です。ページ下の BEHAVIOR パネルで「Extending proboscis（口を伸ばす）」に変わるのが見えるはずです。</p>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl-head"><span class="ctl-name">Food scent（食べ物のにおい）</span></div>
+        <p>においを感じる神経細胞を刺激します。Foodが「直接口に触れる」刺激なのに対して、こちらは「遠くからにおいで気づく」刺激です。</p>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl-head"><span class="ctl-name">Pheromone（フェロモン・ON/OFF）</span></div>
+        <p>仲間の匂い（フェロモン）を感じる神経回路を刺激します。求愛行動に関わることがよく知られている経路です。</p>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl-head"><span class="ctl-name">Visual stimulus / Looming（視覚刺激・ON/OFF）</span></div>
+        <p>「何かがどんどん近づいてくる」ように見える視覚刺激を再現します。ハエが危険から逃げる（Escape）反応に強く関わる回路が刺激されます。</p>
+      </div>
+      <div class="ctl-row off">
+        <div class="ctl-head"><span class="ctl-name">Predator（捕食者・ON/OFF）</span><span class="badge off">見た目だけ</span></div>
+        <p>これをONにしても脳には何も伝わりません。「敵」だけを専門に感じる神経回路はこのデータには存在しないためです。ONにすると3D画面に見た目のオブジェクトが表示されるだけで、上のVisual stimulusとは別物です。</p>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl-head"><span class="ctl-name">Touch stimulus（接触・ON/OFF）</span></div>
+        <p>目のまわりの毛（体の表面のセンサー）に何かが触れたときの神経細胞を刺激します。グルーミング（毛づくろい）行動に関係します。</p>
+      </div>
+    </div>
+    <div class="callout note">
+      <b>なぜ Light と Wind、Predator だけ効かないのか</b>
+      このシミュレーターは、実際に観察された神経細胞のデータだけを使っています。「明るさ」「風」「敵そのもの」を専門に感じる神経回路が、今のところこのデータの中には見つかっていません。存在しない反応を偽物の数字で作るくらいなら、正直に「つながっていません」と表示する、という方針で作られています。
+    </div>
+
+    <h3>SCENARIO <span class="tag">左下のパネル</span></h3>
+    <figure>
+      <img src="guide-assets/03-scenario.png" alt="Scenario のプリセット選択メニューと、Reset World ボタン。">
+    </figure>
+    <p>上の WORLD CONTROL のスライダーを1つずつ動かす代わりに、よくある状況をまとめて再現できるプリセットです。中身は「Default Arena（何もない状態）」「Foraging（採餌中）」「Threat（何かが迫ってくる）」「Courtship（求愛）」「Grooming（毛づくろい）」の5つ。選ぶと、その状況に合ったスライダー・ボタンが自動的にセットされます。特別な処理をしているわけではなく、上のスライダーを手で動かすのとまったく同じ経路で反映されます。</p>
+    <p>「Reset World」ボタンを押すと、脳の状態（それまでに溜まっていた信号など）と、後述する脳への介入がすべてリセットされ、まっさらな状態からやり直せます。</p>
+
+    <h3>NEURAL ACTIVITY <span class="tag">右上のパネル</span></h3>
+    <figure>
+      <img src="guide-assets/04-neural-activity.png" alt="Neural Activity パネル。光る点の集まりと、活動中の神経細胞数、平均発火レートが表示されている。">
+    </figure>
+    <p>光っている粒の1つ1つが、実際の神経細胞（本物のデータに基づく、約13万個のうちの1つ）です。<b>色は神経細胞の種類（信号を伝えるときに使う化学物質の違い）</b>を表し、<b>明るさは、その細胞が「最近信号を出したかどうか」</b>を表します。信号を出した瞬間は明るく光り、時間が経つとだんだん暗くなっていきます。</p>
+    <p>数字の「active neurons（活動中の神経細胞）」と「Hz mean rate（平均の発火レート）」は、どちらも今まさにこのページの中で計算されている実測値です。Hz は「1秒間に何回信号を出しているか」を表す単位で、あらかじめ用意された台本の数字ではありません。右上のドロップダウンで、脳の部位（視覚を処理する部分、におい・味を扱う部分など）ごとに絞り込んで見ることもできます。</p>
+
+    <h3>BEHAVIOR <span class="tag">右下のパネル</span></h3>
+    <div class="shot-row">
+      <figure><img src="guide-assets/05b-behavior-active.png" alt="Food をONにしたときのBehaviorパネル。Extending proboscisが最も強く反応している。"></figure>
+    </div>
+    <p>脳の中の信号を、「歩く」「止まる」「口を伸ばす」など9種類の行動に変換して表示するパネルです。それぞれの行動に0.00〜1.00の強さがつき、一番強いものが大きな文字で表示されます（上の画像では、Foodをオンにした結果「Extending proboscis（口を伸ばす）」が最も強く出ています）。</p>
+    <p>右上に出ている「Activation」というラベルは、「まだ学習（トレーニング）していない段階なので、9つの行動それぞれについて独立に強さを計算しています」という意味です。9つの数字を全部足しても1にはなりません。仮に将来トレーニング済みのモデルに切り替わった場合は、ここが「Confidence（確信度）」というラベルに変わり、9つの行動から1つを選ぶ確率として表示されます。</p>
+
+    <h3>NEURAL PIPELINE <span class="tag">中央下、横長の5マス</span></h3>
+    <figure>
+      <img src="guide-assets/06-pipeline.png" alt="Sensory Input, Sensory Neurons, Interneurons, Descending Neurons, Motor Output の5段階が並んだ図。">
+    </figure>
+    <p>信号が脳の中を流れていく、大まかな5段階を表しています。</p>
+    <ul class="plain">
+      <li><b>Sensory Input</b> — 今まさに WORLD CONTROL から刺激を受け取っているセンサー細胞の数。</li>
+      <li><b>Sensory Neurons</b> — その刺激を受けて、実際に反応している感覚系の神経細胞の数。</li>
+      <li><b>Interneurons</b> — 脳の中で情報を中継・処理している神経細胞の数（一番数が多い段階です）。</li>
+      <li><b>Descending Neurons</b> — 脳から、体（脚や翅など）に向けて指令を送り出す神経細胞の数。</li>
+      <li><b>Motor Output</b> — 実際に体を動かす出力に対応する細胞の数。</li>
+    </ul>
+    <div class="callout note">
+      <b>Motor Output がいつも極端に小さい理由</b>
+      このデータは首から上、つまり「脳の中」までしか記録されていません。脚や翅を実際に動かす先の配線までは対象になっていないため、Motor Outputに分類される細胞はもともとごく少数しかありません。これは不具合ではなく、公開されているデータそのものの範囲です。
+    </div>
+
+    <h3>NEURAL INSPECTOR <span class="tag">中央下、検索ボックスのあるパネル</span></h3>
+    <p class="section-intro">気になる神経細胞を1つ選んで、じっくり観察できる場所です。中央の光る点をクリックするか、上の検索ボックスに番号・名前・部位名を入力して選びます。</p>
+    <figure>
+      <img src="guide-assets/07-inspector.png" alt="Neural Inspector で LPLC2 という細胞を選んだ画面。番号・部位・発火レート・つながりの一覧・介入ボタンが表示されている。">
+      <figcaption>例：「LPLC2」という名前の細胞タイプを検索して選んだところ。</figcaption>
+    </figure>
+    <p>選ぶと、次のことが分かります。</p>
+    <ul class="plain">
+      <li>この細胞の種類・脳のどの部位にあるか・左右どちら側か・使っている神経伝達物質</li>
+      <li>今この瞬間の発火レート（1秒間に何回信号を出しているか）と、直近10秒間の推移グラフ</li>
+      <li>この細胞が、他のどの細胞に信号を送っていて（Outgoing）、どの細胞から信号を受け取っているか（Incoming）。実際につながっている数・シナプス（つなぎ目）の数がそのまま表示されます</li>
+      <li>この細胞が、あらかじめ役割の分かっている神経回路（逃げる・止まる・歩く、など）のメンバーかどうか、そしてそこに直接つながっているかどうか</li>
+    </ul>
+    <p>ここに表示される「INTERVENE」という枠が、次に説明する NEURAL HACKING の入り口です。</p>
+
+    <h3>NEURAL HACKING <span class="tag">一番下のパネル</span></h3>
+    <p class="section-intro">NEURAL INSPECTOR で選んだ1つの神経細胞に対して、直接手を加えて（介入して）、脳がどう変わるかを試せる場所です。</p>
+    <div class="shot-row">
+      <figure><img src="guide-assets/09-hacking-before.png" alt="何も介入していない状態のNeural Hackingパネル。"></figure>
+      <figure><img src="guide-assets/08-banner.png" alt="Stimulateを押した後、画面上部に出るNEURAL INTERVENTION ACTIVEの警告バナー。"></figure>
+    </div>
+    <p>NEURAL INSPECTOR の中の「INTERVENE」に3つのボタンがあります。</p>
+    <ul class="plain">
+      <li><b>Stimulate（刺激する）</b> — この細胞に人工的な刺激を追加します。強さ（Hz）はスライダーで調整できます。</li>
+      <li><b>Suppress（抑える）</b> — 逆方向の刺激を追加し、発火しにくくします。</li>
+      <li><b>Disable（黙らせる）</b> — この細胞を完全に発火できない状態にします。どれだけ強い信号が来ても反応しなくなります。</li>
+    </ul>
+    <p>どれか1つでも押すと、画面上部に赤いバナー「⚠ NEURAL INTERVENTION ACTIVE」が表示され、今どの細胞にどんな介入をしているかが一目で分かるようになります。「Reset all」でいつでも元通りにできます。</p>
+    <p>介入をセットした状態で「Run comparison」を押すと、<b>「何もしなかった場合（Normal）」と「今の介入をした場合（Intervention）」を、同じ条件で並べて比較</b>できます。トライアルの長さ（50 / 100 / 200ミリ秒）を選んで実行すると、次のことが数字で分かります。</p>
+    <figure>
+      <img src="guide-assets/10-hacking-results.png" alt="Run comparison の結果画面。Behavior、Neural activity、Spike count、行動ごとの活性化度、チャンネルごとの活動量、反応時間が、NormalとInterventionで並んで表示されている。">
+      <figcaption>比較結果の例。「escape（逃げる回路）」がNormalでは0だったのに対し、Interventionでは反応し、その反応が始まるまでの時間（7.6 ms）まで表示されている。</figcaption>
+    </figure>
+    <ul class="plain">
+      <li><b>Behavior</b> — どちらの場合にどの行動が一番強く出たか</li>
+      <li><b>Neural activity / Spike count</b> — 脳全体、および選んだ細胞自体が、どれだけ信号を出したか</li>
+      <li><b>Behaviour activations / Channel activity</b> — 9つの行動それぞれの強さ、役割の分かっている神経回路それぞれの信号の量</li>
+      <li><b>Reaction time（反応時間）</b> — 介入を始めてから、それぞれの神経回路が最初に信号を出すまでにかかった時間。ただし、介入前からすでに信号を出していた回路や、試した時間内に一度も反応しなかった回路については、無理に数字を出さず「latency not defined（測定できません）」「no spike in window（反応なし）」とそのまま表示されます。</li>
+    </ul>
+    <div class="callout warn">
+      <b>この実験には、正直にお伝えすべき限界が4つあります</b>
+      <ul class="plain" style="margin:6px 0 0">
+        <li><b>Suppress は理想化した抑制です。</b>実際の抑制性の信号よりも強く効くことがあります。</li>
+        <li><b>Disable は配線図（コネクトーム）そのものを消しているわけではありません。</b>その細胞をその場だけ黙らせているだけで、つながり自体は元のまま残っています。</li>
+        <li><b>反応時間は、介入前から鳴っていた回路には定義できません。</b>そういう場合は数字を出さず、理由を表示します。</li>
+        <li><b>比較は1回きりの実験です。</b>統計的に「確実に差がある」と主張しているわけではありません。</li>
+      </ul>
+    </div>
+
+    <h3>設定（歯車アイコン） <span class="tag">画面右上</span></h3>
+    <figure>
+      <img src="guide-assets/11-settings.png" alt="設定ポップアップ。Graphics High/Lowの切り替えとReset cameraボタン。">
+    </figure>
+    <p>画面右上の歯車アイコンから、見た目の描画品質を「High」と「Low」で切り替えられます。Lowにすると、水面に映る反射、光のにじみ（ブルーム）、影、輪郭のなめらかさなどの<b>見た目の演出だけ</b>がオフになり、動作が軽くなります。<b>シミュレーションの計算結果（発火・行動の判定など）はHigh/Lowでまったく同じです。</b>お使いのパソコンが重いと感じたら、Lowに切り替えてみてください。</p>
+    <p>同じポップアップの「Reset camera」ボタンで、中央の3D映像のカメラ位置を初期状態に戻せます。</p>
+
+    <h3>カメラモード <span class="tag">中央画面の左上</span></h3>
+    <figure>
+      <img src="guide-assets/12-camera.png" alt="CAMERA ドロップダウン。Free / Follow / Orbitが選べる。">
+    </figure>
+    <ul class="plain">
+      <li><b>Free</b> — マウスで自由に視点を動かせます。</li>
+      <li><b>Follow</b> — カメラがハエを追いかけ続けます。</li>
+      <li><b>Orbit</b> — カメラがハエの周りをゆっくり回り続けます。</li>
+    </ul>
+  </div>
+</section>
+
+<section id="tutorial">
+  <div class="wrap">
+    <h2><span class="num">4</span>まず何をすればいいか</h2>
+    <p class="section-intro">迷ったら、この順番で触ってみてください。</p>
+    <ol class="steps">
+      <li><b>まずは何もせず、少し眺めてみる</b><span>右のNeural Activityの光る点が、何もしていなくてもわずかに揺れ動いているのが分かります。これは脳が完全にゼロの状態ではなく、常に小さな背景ノイズを持っているためです。</span></li>
+      <li><b>左のWORLD CONTROLで「Food」をONにしてみる</b><span>中央のハエの様子や、右下のBEHAVIORパネルが「Extending proboscis（口を伸ばす）」に変わるのを確認してください。</span></li>
+      <li><b>中央の脳（Neural Activity）をクリックするか、下のNEURAL INSPECTORで気になる細胞タイプを検索してみる</b><span>例えば「LPLC2」や「DNp01」と入力してみると、実在する細胞タイプが見つかります。選ぶとその細胞の役割や、今のつながり具合が分かります。</span></li>
+      <li><b>選んだ細胞を Disable（黙らせる）してみる</b><span>NEURAL INSPECTOR内の「INTERVENE」から Disable を押すと、その細胞だけを黙らせた状態を体験できます。画面上部に警告バナーが出ます。</span></li>
+      <li><b>そのまま一番下の NEURAL HACKING までスクロールし、「Run comparison」を押してみる</b><span>「何もしなかった場合」と「その細胞を黙らせた場合」で、行動や信号の量がどう変わるかを数字で比較できます。</span></li>
+      <li><b>満足したら「Reset all」または「Reset World」で元に戻す</b><span>「Reset all」は介入だけを解除します。「Reset World」はシミュレーション全体を最初からやり直します。</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="honesty" class="honesty">
+  <div class="wrap">
+    <h2><span class="num">!</span>正直にお伝えする注意点</h2>
+    <div class="callout warn">
+      <b>上部の「Experiment」タブは、押しても何も起こりません</b>
+      画面上部には「World / Neural / Experiment / Evolution」という4つのタブがありますが、これは見出しのようなもので、実際に画面を切り替える仕組みではありません。「World」「Neural」「Experiment」は押しても反応しませんが、それは壊れているのではなく、そもそも1枚の画面にすべての機能がすでに収まっているためです。「Experiment」というアイデアに相当する機能は、このガイドで説明した<b>NEURAL HACKING パネル（Normal vs Intervention の比較実験）</b>として、ページの下の方ですでに実際に動いています。
+    </div>
+    <div class="callout warn">
+      <b>「Evolution」タブだけは、本当にまだ実装されていません</b>
+      こちらは灰色になっていて、実際にクリックできないようになっています。マウスを乗せると「Not implemented yet（まだ実装されていません）」という注記が出ます。今後の機能として予定されているだけで、現時点では使えません。
+    </div>
+    <div class="callout good">
+      <b>画面に出ている数字は、すべて本物のシミュレーション結果です</b>
+      発火レート（Hz）、活動中の神経細胞数、スパイク（信号）の回数など、このページに表示される数字は、すべて今まさに計算されている実際のシミュレーション結果です。見栄えのためだけに用意された、架空の数字やあらかじめ決められた演出用の数字は一切ありません。何かの理由で数値が測定できない場合（たとえば反応時間が定義できない場合など）は、偽の数字を出す代わりに、理由をそのまま表示するようにしています。
+    </div>
+    <div class="callout good">
+      <b>Suppress / Disable は、元のデータそのものを書き換えているわけではありません</b>
+      NEURAL HACKING で神経細胞を刺激したり黙らせたりしても、本物のハエの脳の配線図（どの細胞がどの細胞とつながっているか）は一切変更されません。あくまで「今この瞬間だけ、もしこうしたらどうなるか」を試す、その場限りの実験です。ページを再読み込みしたり、「Reset all」「Reset World」を押せば、いつでも完全に元の状態に戻ります。
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    このガイドは NEURAL GOD（Phase 1〜4 + 見た目アップグレード + ロゴ変更まで反映）の内容をもとに作成しています。<br>
+    <a href="index.html">← NEURAL GOD を開く</a>
+  </div>
+</footer>
+
+</body>
+</html>
